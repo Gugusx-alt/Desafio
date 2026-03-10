@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:feedbacks/services/api_service.dart';
+import 'package:feedbacks/services/refresh_service.dart'; // NOVO IMPORT
 
 class CreateTaskScreen extends StatefulWidget {
   const CreateTaskScreen({super.key});
@@ -111,8 +112,6 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
 
       if (!mounted) return;
 
-    
-      
       if (result['success'] == true) {
         // SUCESSO: Limpa campos e mostra mensagem verde
         _titleController.clear();
@@ -125,6 +124,10 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
             duration: Duration(seconds: 2),
           ),
         );
+        
+        // 🔥 DISPARA A ATUALIZAÇÃO EM TEMPO REAL
+        // Isso vai fazer o dashboard recarregar automaticamente
+        RefreshService().refreshDashboard();
         
         // PERMANECE NA TELA para criar mais tarefas
         setState(() {

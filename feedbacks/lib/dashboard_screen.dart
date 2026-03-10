@@ -4,6 +4,8 @@ import 'package:feedbacks/services/api_service.dart';
 import 'package:feedbacks/models/task.dart';
 import 'package:feedbacks/widgets/task_card.dart';
 import 'package:feedbacks/profile_screen.dart';
+import 'package:feedbacks/services/refresh_service.dart'; // NOVO IMPORT
+import 'dart:async'; // NOVO IMPORT
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -23,10 +25,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool _isLoading = true;
   String? _errorMessage;
 
+  // NOVO: Subscription para o stream de refresh
+  late StreamSubscription _refreshSubscription;
+
   @override
   void initState() {
     super.initState();
     _loadTasks(); // Carrega as tarefas ao iniciar a tela
+    
+    // 🔥 INSCREVE NO STREAM DE ATUALIZAÇÃO
+    _refreshSubscription = RefreshService().refreshStream.listen((_) {
+      print('🔄 Stream recebido! Recarregando tarefas...');
+      _loadTasks();
+    });
+  }
+
+  @override
+  void dispose() {
+    // 🔥 CANCELA A INSCRIÇÃO para evitar memory leaks
+    _refreshSubscription.cancel();
+    super.dispose();
   }
 
   /// Carrega todas as tarefas do sistema via ApiService.getAllTasks()
@@ -47,6 +65,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         // Converte o JSON para objetos Task
         final tasksData = result['data']['tasks'] as List;
         _tasks = tasksData.map((json) => Task.fromJson(json)).toList();
+        print('✅ Tarefas recarregadas: ${_tasks.length}');
       } else {
         _errorMessage = result['error'] ?? 'Erro ao carregar tarefas';
       }
@@ -385,7 +404,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
           status: status,
         );
         if (result['success'] == true) {
-          _loadTasks(); // Recarrega a lista
+          // 🔥 USA O STREAM EM VEZ DE CHAMAR _loadTasks DIRETO
+          RefreshService().refreshDashboard();
+          
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('Status atualizado para ${_getStatusText(status)}'),
