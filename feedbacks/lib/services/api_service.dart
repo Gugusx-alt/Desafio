@@ -291,7 +291,7 @@ class ApiService {
     }
   }
 
-  // Atualizar status da tarefa
+  // Atualizar status da tarefa - CORRIGIDO com a rota /status
   static Future<Map<String, dynamic>> updateTaskStatus({
     required int taskId,
     required String status,
@@ -303,13 +303,15 @@ class ApiService {
     try {
       final headers = await _getHeaders();
       
+      // URL CORRIGIDA: adiciona /status no final
       final response = await http.patch(
-        Uri.parse('$baseUrl/api/tasks/$taskId'),
+        Uri.parse('$baseUrl/api/tasks/$taskId/status'),
         headers: headers,
         body: jsonEncode({'status': status}),
       ).timeout(const Duration(seconds: 10));
 
       print('🟢 Atualizando tarefa $taskId - Status: ${response.statusCode}');
+      print('📦 Resposta: ${response.body}');
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
