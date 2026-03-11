@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:feedbacks/services/api_service.dart';
-import 'package:feedbacks/models/application.dart'; // ← CORRIGIDO
+import 'package:feedbacks/models/application.dart';
 
 class ApplicationService {
   static const String baseUrl = ApiService.baseUrl;
@@ -33,6 +33,37 @@ class ApplicationService {
       return [];
     } catch (e) {
       print('🔴 Erro ao buscar minhas aplicações: $e');
+      return [];
+    }
+  }
+
+  // 🔥 NOVO: Buscar TODAS as aplicações (apenas admin)
+  static Future<List<Application>> getAllApplications() async {
+    if (ApiService.currentUserRole != 'admin') {
+      print('⚠️ Apenas admin pode ver todas as aplicações');
+      return [];
+    }
+
+    try {
+      final headers = await _getHeaders();
+      print('🔵 Buscando TODAS as aplicações');
+      
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/applications'),
+        headers: headers,
+      );
+
+      print('🟢 Status: ${response.statusCode}');
+      print('📦 Resposta: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final List<dynamic> appsJson = data['applications'];
+        return appsJson.map((json) => Application.fromJson(json)).toList();
+      }
+      return [];
+    } catch (e) {
+      print('🔴 Erro ao buscar todas as aplicações: $e');
       return [];
     }
   }

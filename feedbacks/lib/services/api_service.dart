@@ -9,7 +9,7 @@ class ApiService {
 
   static const String baseUrl = 'http://localhost:3000';
 
-  // Headers padrão para requisições autenticadas (MANTIDO COMO PRIVADO)
+  // Headers padrão para requisições autenticadas
   static Future<Map<String, String>> _getHeaders() async {
     return {
       'Content-Type': 'application/json',
@@ -17,7 +17,7 @@ class ApiService {
     };
   }
 
-  // 🔥 NOVO MÉTODO PÚBLICO para outros serviços (ApplicationService, etc)
+  // 🔥 NOVO MÉTODO PÚBLICO para outros serviços acessarem os headers
   static Future<Map<String, String>> getHeaders() async {
     return await _getHeaders();
   }
