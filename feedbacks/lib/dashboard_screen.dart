@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:feedbacks/create_task_screen.dart';
+import 'package:feedbacks/admin/applications_dashboard.dart';
 import 'package:feedbacks/services/api_service.dart';
 import 'package:feedbacks/models/task.dart';
 import 'package:feedbacks/widgets/task_card.dart';
 import 'package:feedbacks/profile_screen.dart';
-import 'package:feedbacks/services/refresh_service.dart'; // NOVO IMPORT
-import 'dart:async'; // NOVO IMPORT
+import 'package:feedbacks/services/refresh_service.dart';
+import 'dart:async';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -15,46 +16,47 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  // Índice da aba selecionada no NavigationRail
   int _selectedIndex = 0;
   
-  // Lista de tarefas carregadas da API
+  // Para tasks (cliente/dev)
   List<Task> _tasks = [];
   
-  // Estados de carregamento e erro
   bool _isLoading = true;
   String? _errorMessage;
 
-  // NOVO: Subscription para o stream de refresh
   late StreamSubscription _refreshSubscription;
 
   @override
   void initState() {
     super.initState();
-    _loadTasks(); // Carrega as tarefas ao iniciar a tela
     
-    // 🔥 INSCREVE NO STREAM DE ATUALIZAÇÃO
-    _refreshSubscription = RefreshService().refreshStream.listen((_) {
-      print('🔄 Stream recebido! Recarregando tarefas...');
+    final role = ApiService.currentUserRole;
+    
+    // Se não for admin, carrega tarefas
+    if (role != 'admin') {
       _loadTasks();
+    }
+    
+    _refreshSubscription = RefreshService().refreshStream.listen((_) {
+      print('🔄 [Dashboard] Stream recebido! Recarregando...');
+      if (ApiService.currentUserRole != 'admin') {
+        _loadTasks();
+      }
     });
   }
 
   @override
   void dispose() {
-    // 🔥 CANCELA A INSCRIÇÃO para evitar memory leaks
     _refreshSubscription.cancel();
     super.dispose();
   }
 
-  /// Carrega todas as tarefas do sistema via ApiService.getAllTasks()
   Future<void> _loadTasks() async {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
 
-    // Busca TODAS as tarefas (independente do role do usuário)
     final result = await ApiService.getAllTasks();
 
     if (!mounted) return;
@@ -62,10 +64,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     setState(() {
       _isLoading = false;
       if (result['success'] == true) {
-        // Converte o JSON para objetos Task
         final tasksData = result['data']['tasks'] as List;
         _tasks = tasksData.map((json) => Task.fromJson(json)).toList();
-        print('✅ Tarefas recarregadas: ${_tasks.length}');
       } else {
         _errorMessage = result['error'] ?? 'Erro ao carregar tarefas';
       }
@@ -74,17 +74,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Obtém o role do usuário atual (admin, cliente, desenvolvedor)
     final role = ApiService.currentUserRole ?? '-';
     
+    // ADMIN: Mostra o dashboard de aplicações diretamente
+    if (role == 'admin') {
+      return const ApplicationsDashboard();
+    }
+    
+    // CLIENTE/DEV: Mostra o dashboard normal com NavigationRail
     return Scaffold(
       appBar: AppBar(
         title: const Text('Dashboard'),
       ),
       body: Row(
         children: [
-          
-          // Menu de navegação na lateral esquerda
           NavigationRail(
             selectedIndex: _selectedIndex,
             onDestinationSelected: (int index) {
@@ -94,20 +97,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
             },
             labelType: NavigationRailLabelType.selected,
             destinations: [
-              // Aba Dashboard (sempre visível)
               const NavigationRailDestination(
                 icon: Icon(Icons.dashboard),
                 selectedIcon: Icon(Icons.dashboard),
                 label: Text('Dashboard'),
               ),
-              // Aba Nova Tarefa (visível apenas para clientes)
+              
               if (role == 'cliente')
                 const NavigationRailDestination(
                   icon: Icon(Icons.add_task),
                   selectedIcon: Icon(Icons.add_task),
                   label: Text('Nova Tarefa'),
                 ),
-              // Aba Perfil (sempre visível)
+              
               const NavigationRailDestination(
                 icon: Icon(Icons.person),
                 selectedIcon: Icon(Icons.person),
@@ -116,8 +118,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ].whereType<NavigationRailDestination>().toList(),
           ),
           
-          
-          // Área que muda conforme a aba selecionada
           Expanded(
             child: _buildContent(_selectedIndex, role),
           ),
@@ -126,22 +126,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  /// Constrói o conteúdo da aba selecionada
-  /// 
-  /// [index] - Índice da aba selecionada
-  /// [role] - Role do usuário atual
   Widget _buildContent(int index, String role) {
     switch (index) {
-      case 0: // Aba Dashboard
+      case 0: // Dashboard (mostra tarefas)
         return _buildTasksScreen();
       
-      case 1: // Aba Nova Tarefa (só existe para cliente)
+      case 1: // Nova Tarefa (só existe para cliente)
         if (role == 'cliente') {
           return const CreateTaskScreen();
         }
-        return const ProfileScreen(); // Fallback (não deve acontecer)
+        return const ProfileScreen();
       
-      case 2: // Aba Perfil
+      case 2: // Perfil
         return const ProfileScreen();
       
       default:
@@ -149,19 +145,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  /// Constrói a tela de listagem de tarefas (Dashboard)
-  /// Gerencia 4 estados diferentes:
-  /// 1. Carregando: Mostra CircularProgressIndicator
-  /// 2. Erro: Mostra mensagem de erro + botão tentar novamente
-  /// 3. Vazio: Mostra mensagem que não há tarefas
-  /// 4. Sucesso: Lista os cards das tarefas
   Widget _buildTasksScreen() {
-    // Estado de carregamento
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
 
-    // Estado de erro
     if (_errorMessage != null) {
       return Center(
         child: Column(
@@ -169,11 +157,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           children: [
             Icon(Icons.error_outline, size: 48, color: Colors.red.shade300),
             const SizedBox(height: 16),
-            Text(
-              _errorMessage!,
-              style: const TextStyle(fontSize: 16),
-              textAlign: TextAlign.center,
-            ),
+            Text(_errorMessage!),
             const SizedBox(height: 16),
             ElevatedButton(
               onPressed: _loadTasks,
@@ -184,7 +168,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       );
     }
 
-    // Estado vazio (nenhuma tarefa)
     if (_tasks.isEmpty) {
       return Center(
         child: Column(
@@ -193,17 +176,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Icon(Icons.inbox, size: 64, color: Colors.grey.shade400),
             const SizedBox(height: 16),
             Text(
-              'Nenhuma tarefa encontrada',
+              role == 'cliente' 
+                  ? 'Nenhuma tarefa criada' 
+                  : 'Nenhuma tarefa encontrada',
               style: TextStyle(fontSize: 18, color: Colors.grey.shade600),
             ),
-            // Para clientes, oferece atalho para criar primeira tarefa
             if (ApiService.currentUserRole == 'cliente') ...[
               const SizedBox(height: 16),
               ElevatedButton(
                 onPressed: () {
-                  setState(() {
-                    _selectedIndex = 1; // Vai para tela de criar tarefa
-                  });
+                  setState(() => _selectedIndex = 1);
                 },
                 child: const Text('Criar primeira tarefa'),
               ),
@@ -213,9 +195,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       );
     }
 
-    // Estado com tarefas - Lista os cards
     return RefreshIndicator(
-      onRefresh: _loadTasks, // Pull to refresh
+      onRefresh: _loadTasks,
       child: ListView.builder(
         padding: const EdgeInsets.symmetric(vertical: 8),
         itemCount: _tasks.length,
@@ -224,10 +205,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           return TaskCard(
             task: task,
             userRole: ApiService.currentUserRole ?? '-',
-            onTap: () {
-              _showTaskDetails(task); // Abre modal com detalhes
-            },
-            // Apenas admin e dev podem alterar status
+            onTap: () => _showTaskDetails(task),
             onStatusChange: ApiService.currentUserRole != 'cliente'
                 ? () => _showStatusDialog(task)
                 : null,
@@ -237,20 +215,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  /// Exibe um modal com os detalhes completos da tarefa
-  /// Utiliza showModalBottomSheet com DraggableScrollableSheet para uma experiência similar a um modal expansível.
   void _showTaskDetails(Task task) {
     showModalBottomSheet(
       context: context,
-      isScrollControlled: true, // Permite que o modal ocupe quase toda a tela
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) {
         return DraggableScrollableSheet(
-          initialChildSize: 0.9, // Começa com 90% da tela
-          minChildSize: 0.5,      // Mínimo 50%
-          maxChildSize: 0.95,     // Máximo 95%
+          initialChildSize: 0.9,
+          minChildSize: 0.5,
+          maxChildSize: 0.95,
           expand: false,
           builder: (context, scrollController) {
             return Container(
@@ -258,7 +234,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Indicador de drag (barra no topo)
                   Center(
                     child: Container(
                       width: 40,
@@ -270,8 +245,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  
-                  // Header com ícone de status e título
                   Row(
                     children: [
                       Container(
@@ -311,10 +284,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
                     ],
                   ),
-                  
                   const SizedBox(height: 24),
-                  
-                  // Seção de descrição
                   const Text(
                     'Descrição',
                     style: TextStyle(
@@ -339,10 +309,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
                     ),
                   ),
-                  
                   const SizedBox(height: 24),
-                  
-                  // Seção de informações adicionais
                   const Text(
                     'Informações',
                     style: TextStyle(
@@ -368,9 +335,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  /// Exibe diálogo para alterar o status de uma tarefa
-  /// Disponível apenas para admin e desenvolvedores.
-  /// Oferece as 4 opções de status: aberta, em_andamento, concluida, cancelada
   void _showStatusDialog(Task task) {
     showDialog(
       context: context,
@@ -391,22 +355,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  /// Constrói uma opção de status no diálogo de alteração
   Widget _buildStatusOption(Task task, String status) {
     final color = _getStatusColor(status);
     return ListTile(
       leading: Icon(_getStatusIcon(status), color: color),
       title: Text(_getStatusText(status)),
       onTap: () async {
-        Navigator.pop(context); // Fecha o diálogo
+        Navigator.pop(context);
         final result = await ApiService.updateTaskStatus(
           taskId: task.id,
           status: status,
         );
         if (result['success'] == true) {
-          // 🔥 USA O STREAM EM VEZ DE CHAMAR _loadTasks DIRETO
           RefreshService().refreshDashboard();
-          
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('Status atualizado para ${_getStatusText(status)}'),
@@ -418,7 +379,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  /// Constrói uma linha de informação no modal de detalhes
   Widget _buildInfoRow(String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
@@ -437,8 +397,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // Verificar situação do status de uma task
-  
   String _getStatusText(String status) {
     switch (status) {
       case 'aberta': return 'Aberta';
@@ -472,4 +430,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   String _formatDate(DateTime date) {
     return '${date.day}/${date.month}/${date.year} ${date.hour}:${date.minute.toString().padLeft(2, '0')}';
   }
+
+  String get role => ApiService.currentUserRole ?? '-';
 }

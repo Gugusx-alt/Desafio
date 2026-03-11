@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:feedbacks/services/api_service.dart';
-import 'package:feedbacks/services/refresh_service.dart'; // NOVO IMPORT
+import 'package:feedbacks/services/application_service.dart'; // NOVO IMPORT
+import 'package:feedbacks/services/refresh_service.dart';
 
 class CreateTaskScreen extends StatefulWidget {
   const CreateTaskScreen({super.key});
@@ -29,9 +30,8 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
     _loadApplications(); // Carrega aplicações ao iniciar a tela
   }
  
-  /// Esta função é chamada automaticamente quando a tela é aberta.
-  /// Em caso de sucesso, popula o dropdown com as aplicações.
-  /// Em caso de erro, mostra informações de debug.
+  /// Carrega APENAS as aplicações que o usuário tem acesso
+  /// Agora usando ApplicationService.getMyApplications()
   Future<void> _loadApplications() async {
     setState(() {
       _isLoadingApplications = true;
@@ -39,23 +39,30 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
     });
 
     try {
-      final applications = await ApiService.getApplications();
+      // 🔥 MUDANÇA: Agora usa ApplicationService que filtra por usuário
+      final myApplications = await ApplicationService.getMyApplications();
       
       if (!mounted) return;
 
       setState(() {
-        _applications = applications;
+        // Converte a lista de Application para o formato Map que o dropdown espera
+        _applications = myApplications.map((app) => {
+          'id': app.id,
+          'name': app.name,
+          'description': app.description,
+        }).toList();
+        
         _isLoadingApplications = false;
         
         if (_applications.isNotEmpty) {
           // Seleciona a primeira aplicação por padrão
           _selectedApplicationId = _applications.first['id'] as int;
         } else {
-          _debugInfo = 'Nenhuma aplicação encontrada no banco de dados';
+          _debugInfo = 'Você não está vinculado a nenhuma aplicação. Procure o administrador.';
         }
       });
       
-      print('✅ Aplicações carregadas: $_applications');
+      print('✅ Aplicações do usuário carregadas: $_applications');
     } catch (e) {
       print('🔴 Erro ao carregar aplicações: $e');
       
@@ -126,7 +133,6 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
         );
         
         // 🔥 DISPARA A ATUALIZAÇÃO EM TEMPO REAL
-        // Isso vai fazer o dashboard recarregar automaticamente
         RefreshService().refreshDashboard();
         
         // PERMANECE NA TELA para criar mais tarefas
@@ -247,7 +253,7 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
                         
                         const SizedBox(height: 12),
                         
-                        // #### DROPDOWN DE APLICAÇÕES ####
+                        // #### DROPDOWN DE APLICAÇÕES (AGORA FILTRADO) ####
                         _isLoadingApplications
                             ? const Center(child: CircularProgressIndicator())
                             : _applications.isEmpty
@@ -261,8 +267,14 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
                                     child: Column(
                                       children: [
                                         const Text(
-                                          'Nenhuma aplicação encontrada',
+                                          'Você não está vinculado a nenhuma aplicação',
                                           style: TextStyle(fontWeight: FontWeight.bold),
+                                          textAlign: TextAlign.center,
+                                        ),
+                                        const SizedBox(height: 8),
+                                        const Text(
+                                          'Procure o administrador para vincular você a uma aplicação.',
+                                          textAlign: TextAlign.center,
                                         ),
                                         const SizedBox(height: 8),
                                         ElevatedButton(
@@ -332,7 +344,7 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
                         SizedBox(
                           height: 44,
                           child: ElevatedButton(
-                            onPressed: _isLoading ? null : _handleCreateTask,
+                            onPressed: (_isLoading || _applications.isEmpty) ? null : _handleCreateTask,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.blue,
                               foregroundColor: Colors.white,
