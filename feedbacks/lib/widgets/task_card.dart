@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/task.dart';
-import '../widgets/task_detail_screen.dart'; // NOVO IMPORT
+import '../widgets/task_detail_screen.dart';
 
 class TaskCard extends StatelessWidget {
   final Task task;
@@ -26,7 +26,6 @@ class TaskCard extends StatelessWidget {
       ),
       child: InkWell(
         onTap: () {
-          // Abre a tela de detalhes com chat e anexos
           Navigator.push(
             context,
             MaterialPageRoute(
@@ -52,7 +51,7 @@ class TaskCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  // 🔥 NOVO: Badge da categoria
+                  // Badge da categoria
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 8,
@@ -163,8 +162,11 @@ class TaskCard extends StatelessWidget {
                     color: Colors.grey.shade500,
                   ),
                   const SizedBox(width: 4),
+                  // 🔥 MOSTRA O NOME DO CRIADOR EM VEZ DO ID
                   Text(
-                    'Criador: #${task.createdBy}',
+                    task.createdByName != null 
+                        ? 'Criador: ${task.createdByName}' 
+                        : 'Criador: #${task.createdBy}',
                     style: TextStyle(
                       fontSize: 12,
                       color: Colors.grey.shade600,

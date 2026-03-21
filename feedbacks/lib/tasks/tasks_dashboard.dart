@@ -376,7 +376,8 @@ class _TasksDashboardState extends State<TasksDashboard> {
                   const SizedBox(height: 8),
                   _buildInfoRow('ID', task.id.toString()),
                   _buildInfoRow('Aplicação', 'App #${task.applicationId}'),
-                  _buildInfoRow('Criado por', 'Usuário #${task.createdBy}'),
+                  // 🔥 MOSTRA O NOME DO CRIADOR EM VEZ DO ID
+                  _buildInfoRow('Criado por', task.createdByName ?? 'Usuário #${task.createdBy}'),
                   _buildInfoRow('Criado em', _formatDate(task.createdAt)),
                 ],
               ),

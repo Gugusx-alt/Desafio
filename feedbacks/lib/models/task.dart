@@ -8,6 +8,7 @@ class Task {
   final String category; // bug, ajuste, melhoria
   final int applicationId;
   final int createdBy;
+  final String? createdByName; // 🔥 NOME DO CRIADOR
   final int? assignedTo;
   final DateTime createdAt;
   final DateTime? updatedAt;
@@ -20,6 +21,7 @@ class Task {
     required this.category,
     required this.applicationId,
     required this.createdBy,
+    this.createdByName,
     this.assignedTo,
     required this.createdAt,
     this.updatedAt,
@@ -34,6 +36,7 @@ class Task {
       category: json['category'] as String? ?? 'ajuste',
       applicationId: json['application_id'] as int,
       createdBy: json['created_by'] as int,
+      createdByName: json['created_by_name'] as String?, // 🔥 NOVO
       assignedTo: json['assigned_to'] as int?,
       createdAt: DateTime.parse(json['created_at']),
       updatedAt: json['updated_at'] != null 

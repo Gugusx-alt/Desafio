@@ -3,8 +3,8 @@ import 'package:feedbacks/create_task_screen.dart';
 import 'package:feedbacks/admin/applications_dashboard.dart';
 import 'package:feedbacks/services/api_service.dart';
 import 'package:feedbacks/tasks/tasks_dashboard.dart';
-import 'package:feedbacks/widgets/task_detail_screen.dart'; // NOVO IMPORT
-import 'package:feedbacks/models/task.dart'; // NOVO IMPORT
+import 'package:feedbacks/widgets/task_detail_screen.dart';
+import 'package:feedbacks/models/task.dart';
 import 'package:feedbacks/profile_screen.dart';
 import 'package:feedbacks/services/refresh_service.dart';
 import 'dart:async';
@@ -36,7 +36,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     super.dispose();
   }
 
-  // 🔥 MÉTODO PARA EXIBIR O MODAL DE DETALHES DA TAREFA
+  // Método para exibir o modal de detalhes da tarefa
   void _showTaskDetails(Task task) {
     showModalBottomSheet(
       context: context,
@@ -166,7 +166,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   const SizedBox(height: 8),
                   _buildInfoRow('ID da Tarefa', task.id.toString()),
                   _buildInfoRow('Aplicação', 'App #${task.applicationId}'),
-                  _buildInfoRow('Criado por', 'Usuário #${task.createdBy}'),
+                  // 🔥 MOSTRA O NOME DO CRIADOR EM VEZ DO ID
+                  _buildInfoRow('Criado por', task.createdByName ?? 'Usuário #${task.createdBy}'),
                   if (task.assignedTo != null)
                     _buildInfoRow('Atribuído para', 'Usuário #${task.assignedTo}'),
                   _buildInfoRow('Criado em', _formatDate(task.createdAt)),
@@ -209,7 +210,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // 🔥 MÉTODO PARA FORMATAR TEXTO DO STATUS
+  // Método para formatar texto do status
   String _getStatusText(String status) {
     switch (status) {
       case 'aberta': return 'Aberta';
@@ -220,12 +221,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  // 🔥 MÉTODO PARA FORMATAR DATA
+  // Método para formatar data
   String _formatDate(DateTime date) {
     return '${date.day}/${date.month}/${date.year} ${date.hour}:${date.minute.toString().padLeft(2, '0')}';
   }
 
-  // 🔥 MÉTODO PARA CONSTRUIR LINHA DE INFORMAÇÃO
+  // Método para construir linha de informação
   Widget _buildInfoRow(String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
@@ -319,4 +320,4 @@ class _DashboardScreenState extends State<DashboardScreen> {
         return const SizedBox.shrink();
     }
   }
-}
+} 
