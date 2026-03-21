@@ -11,7 +11,7 @@ class ApplicationService {
     return await ApiService.getHeaders();
   }
 
-  // Buscar APENAS as aplicações que o usuário tem acesso
+  // Buscar APENAS as aplicações que o usuário tem acesso (apenas ativas)
   static Future<List<Application>> getMyApplications() async {
     try {
       final headers = await _getHeaders();
@@ -37,7 +37,38 @@ class ApplicationService {
     }
   }
 
-  // 🔥 NOVO: Buscar TODAS as aplicações (apenas admin)
+  // 🔥 NOVO: Buscar TODAS as aplicações do admin (inclusive inativas)
+  static Future<List<Application>> getMyAllApplications() async {
+    if (ApiService.currentUserRole != 'admin') {
+      print('⚠️ Apenas admin pode ver todas as suas aplicações');
+      return [];
+    }
+
+    try {
+      final headers = await _getHeaders();
+      print('🔵 Buscando TODAS as aplicações do usuário ${ApiService.currentUserId}');
+      
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/applications/my/all'),
+        headers: headers,
+      );
+
+      print('🟢 Status: ${response.statusCode}');
+      print('📦 Resposta: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final List<dynamic> appsJson = data['applications'];
+        return appsJson.map((json) => Application.fromJson(json)).toList();
+      }
+      return [];
+    } catch (e) {
+      print('🔴 Erro ao buscar minhas aplicações: $e');
+      return [];
+    }
+  }
+
+  // Buscar TODAS as aplicações do sistema (apenas admin)
   static Future<List<Application>> getAllApplications() async {
     if (ApiService.currentUserRole != 'admin') {
       print('⚠️ Apenas admin pode ver todas as aplicações');
@@ -46,7 +77,7 @@ class ApplicationService {
 
     try {
       final headers = await _getHeaders();
-      print('🔵 Buscando TODAS as aplicações');
+      print('🔵 Buscando TODAS as aplicações do sistema');
       
       final response = await http.get(
         Uri.parse('$baseUrl/api/applications'),

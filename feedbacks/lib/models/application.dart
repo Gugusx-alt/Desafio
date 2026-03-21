@@ -6,6 +6,7 @@ class Application {
   final String status;
   final DateTime createdAt;
   final DateTime? updatedAt;
+  final int? taskCount; // 🔥 NOVO: quantidade de tarefas vinculadas
 
   Application({
     required this.id,
@@ -15,6 +16,7 @@ class Application {
     required this.status,
     required this.createdAt,
     this.updatedAt,
+    this.taskCount,
   });
 
   factory Application.fromJson(Map<String, dynamic> json) {
@@ -28,6 +30,9 @@ class Application {
       updatedAt: json['updated_at'] != null 
           ? DateTime.parse(json['updated_at']) 
           : null,
+      taskCount: json['task_count'] != null 
+          ? (json['task_count'] as num).toInt() 
+          : null, // 🔥 NOVO
     );
   }
 }
