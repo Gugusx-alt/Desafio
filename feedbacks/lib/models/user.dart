@@ -1,28 +1,31 @@
-class Application {
+class User {
   final int id;
   final String name;
-  final String? description;
-  final int? createdBy;
+  final String email;
+  final String role;
+  final String? phone;
   final String status;
   final DateTime createdAt;
   final DateTime? updatedAt;
 
-  Application({
+  User({
     required this.id,
     required this.name,
-    this.description,
-    this.createdBy,
+    required this.email,
+    required this.role,
+    this.phone,
     required this.status,
     required this.createdAt,
     this.updatedAt,
   });
 
-  factory Application.fromJson(Map<String, dynamic> json) {
-    return Application(
+  factory User.fromJson(Map<String, dynamic> json) {
+    return User(
       id: json['id'] as int,
       name: json['name'] as String,
-      description: json['description'] as String?,
-      createdBy: json['created_by'] as int?,
+      email: json['email'] as String,
+      role: json['role'] as String,
+      phone: json['phone'] as String?,
       status: json['status'] as String? ?? 'ativo',
       createdAt: DateTime.parse(json['created_at']),
       updatedAt: json['updated_at'] != null 

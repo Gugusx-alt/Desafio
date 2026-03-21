@@ -1,25 +1,23 @@
-// Importa o pacote de material design do Flutter (para usar Colors e Icons)
 import 'package:flutter/material.dart';
 
-// Classe modelo que representa uma tarefa no sistema
 class Task {
-  // Propriedades da tarefa (correspondem às colunas da tabela tasks)
-  final int id;                  // ID único da tarefa
-  final String title;             // Título da tarefa
-  final String? description;      // Descrição (opcional)
-  final String status;            // Status: aberta, em_andamento, concluida, cancelada
-  final int applicationId;        // ID da aplicação relacionada
-  final int createdBy;            // ID do usuário que criou
-  final int? assignedTo;          // ID do usuário atribuído (opcional)
-  final DateTime createdAt;       // Data de criação
-  final DateTime? updatedAt;      // Data da última atualização (opcional)
+  final int id;
+  final String title;
+  final String? description;
+  final String status;
+  final String category; // bug, ajuste, melhoria
+  final int applicationId;
+  final int createdBy;
+  final int? assignedTo;
+  final DateTime createdAt;
+  final DateTime? updatedAt;
 
-  // Construtor da classe
   Task({
     required this.id,
     required this.title,
     this.description,
     required this.status,
+    required this.category,
     required this.applicationId,
     required this.createdBy,
     this.assignedTo,
@@ -27,13 +25,13 @@ class Task {
     this.updatedAt,
   });
 
-  // Converte um JSON (do backend) em um objeto Task
   factory Task.fromJson(Map<String, dynamic> json) {
     return Task(
       id: json['id'] as int,
       title: json['title'] as String,
       description: json['description'] as String?,
       status: json['status'] as String,
+      category: json['category'] as String? ?? 'ajuste',
       applicationId: json['application_id'] as int,
       createdBy: json['created_by'] as int,
       assignedTo: json['assigned_to'] as int?,
@@ -44,35 +42,77 @@ class Task {
     );
   }
 
-  // Retorna uma cor diferente para cada status (usado nos cards)
+  // Cores baseadas no status
   Color get statusColor {
     switch (status) {
       case 'aberta':
-        return Colors.blue;        // Azul para tarefas abertas
+        return Colors.blue;
       case 'em_andamento':
-        return Colors.orange;      // Laranja para em andamento
+        return Colors.orange;
       case 'concluida':
-        return Colors.green;       // Verde para concluídas
+        return Colors.green;
       case 'cancelada':
-        return Colors.red;         // Vermelho para canceladas
+        return Colors.red;
       default:
-        return Colors.grey;        // Cinza para status desconhecido
+        return Colors.grey;
     }
   }
 
-  // Retorna um ícone diferente para cada status (usado nos cards)
+  // Ícone baseado no status
   IconData get statusIcon {
     switch (status) {
       case 'aberta':
-        return Icons.pending_actions;    // Ícone de pendente
+        return Icons.pending_actions;
       case 'em_andamento':
-        return Icons.play_circle;        // Ícone de play
+        return Icons.play_circle;
       case 'concluida':
-        return Icons.check_circle;       // Ícone de check
+        return Icons.check_circle;
       case 'cancelada':
-        return Icons.cancel;              // Ícone de cancelado
+        return Icons.cancel;
       default:
-        return Icons.help;                // Ícone de ajuda para desconhecido
+        return Icons.help;
+    }
+  }
+
+  // Ícone baseado na categoria
+  IconData get categoryIcon {
+    switch (category) {
+      case 'bug':
+        return Icons.bug_report;
+      case 'ajuste':
+        return Icons.tune;
+      case 'melhoria':
+        return Icons.trending_up;
+      default:
+        return Icons.help;
+    }
+  }
+
+  // Texto da categoria
+  String get categoryText {
+    switch (category) {
+      case 'bug':
+        return 'Bug';
+      case 'ajuste':
+        return 'Ajuste';
+      case 'melhoria':
+        return 'Melhoria';
+      default:
+        return category;
+    }
+  }
+
+  // Cor da categoria
+  Color get categoryColor {
+    switch (category) {
+      case 'bug':
+        return Colors.red;
+      case 'ajuste':
+        return Colors.orange;
+      case 'melhoria':
+        return Colors.green;
+      default:
+        return Colors.grey;
     }
   }
 }
