@@ -12,6 +12,11 @@ dependencies:
   cupertino_icons: ^1.0.8
   http: ^1.1.0
   intl: ^0.19.0
+  image_picker: ^1.1.0        # Para selecionar imagens e vídeos
+  file_picker: ^8.0.0         # Para selecionar qualquer tipo de arquivo
+  open_file: ^3.3.0           # Para abrir arquivos baixados
+  path_provider: ^2.1.0       # Para acessar diretórios do dispositivo
+  permission_handler: ^11.0.0 # Para pedir permissões (Android/iOS)
 
 dev_dependencies:
   flutter_test:

@@ -1,19 +1,13 @@
-
 import 'package:flutter/material.dart';
 import '../models/task.dart';
-
+import '../widgets/task_detail_screen.dart'; // NOVO IMPORT
 
 class TaskCard extends StatelessWidget {
-  // Dados da tarefa a ser exibida
   final Task task;
-  // Role do usuário atual (admin, cliente, desenvolvedor)
   final String userRole;
-  // Função chamada ao clicar no card (abrir detalhes)
   final VoidCallback? onTap;
-  // Função chamada ao clicar no botão de alterar status
   final VoidCallback? onStatusChange;
 
-  // Construtor do card
   const TaskCard({
     super.key,
     required this.task,
@@ -25,29 +19,30 @@ class TaskCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      // Sombra do card
       elevation: 2,
-      // Margem externa (laterais 16px, vertical 8px)
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      // Bordas arredondadas
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
       ),
-      // Torna o card clicável
       child: InkWell(
-        onTap: onTap,
+        onTap: () {
+          // Abre a tela de detalhes com chat e anexos
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => TaskDetailScreen(task: task),
+            ),
+          );
+        },
         borderRadius: BorderRadius.circular(12),
         child: Padding(
-          // Espaçamento interno
           padding: const EdgeInsets.all(16),
           child: Column(
-            // Alinha tudo à esquerda
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // LINHA 1: Título e status
+              // LINHA 1: Título, categoria e status
               Row(
                 children: [
-                  // Título (expande para ocupar espaço disponível)
                   Expanded(
                     child: Text(
                       task.title,
@@ -57,17 +52,49 @@ class TaskCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  // Container do status com ícone e texto
+                  // 🔥 NOVO: Badge da categoria
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 8,
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      // Cor do status com opacity baixa 
+                      color: task.categoryColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: task.categoryColor.withOpacity(0.3),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          task.categoryIcon,
+                          size: 12,
+                          color: task.categoryColor,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          task.categoryText,
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: task.categoryColor,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  // Container do status
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
                       color: task.statusColor.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(12),
-                      // Borda com a cor do status 
                       border: Border.all(
                         color: task.statusColor.withOpacity(0.3),
                       ),
@@ -75,14 +102,12 @@ class TaskCard extends StatelessWidget {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        // Ícone do status
                         Icon(
                           task.statusIcon,
                           size: 14,
                           color: task.statusColor,
                         ),
                         const SizedBox(width: 4),
-                        // Texto do status
                         Text(
                           _getStatusText(task.status),
                           style: TextStyle(
@@ -97,7 +122,7 @@ class TaskCard extends StatelessWidget {
                 ],
               ),
               
-              // LINHA 2: Descrição (se existir)
+              // LINHA 2: Descrição
               if (task.description != null) ...[
                 const SizedBox(height: 8),
                 Text(
@@ -106,14 +131,14 @@ class TaskCard extends StatelessWidget {
                     fontSize: 14,
                     color: Colors.grey.shade600,
                   ),
-                  maxLines: 2,           // Limita a 2 linhas
-                  overflow: TextOverflow.ellipsis, // Adiciona ... se passar
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
               
               const SizedBox(height: 12),
               
-              //Informações do rodapé
+              // Informações do rodapé
               Row(
                 children: [
                   // Ícone de aplicação
@@ -123,7 +148,6 @@ class TaskCard extends StatelessWidget {
                     color: Colors.grey.shade500,
                   ),
                   const SizedBox(width: 4),
-                  // Id da aplicação
                   Text(
                     'App #${task.applicationId}',
                     style: TextStyle(
@@ -139,7 +163,6 @@ class TaskCard extends StatelessWidget {
                     color: Colors.grey.shade500,
                   ),
                   const SizedBox(width: 4),
-                  // Id do criador
                   Text(
                     'Criador: #${task.createdBy}',
                     style: TextStyle(
@@ -147,8 +170,8 @@ class TaskCard extends StatelessWidget {
                       color: Colors.grey.shade600,
                     ),
                   ),
-                  const Spacer(), // Empurra o próximo item para a direita
-                  // Data formatada de criação
+                  const Spacer(),
+                  // Data formatada
                   Text(
                     _formatDate(task.createdAt),
                     style: TextStyle(
@@ -159,7 +182,7 @@ class TaskCard extends StatelessWidget {
                 ],
               ),
               
-              //Botão de alterar status (só para admin/dev)
+              // Botão de alterar status (só para admin/dev)
               if (userRole != 'cliente' && onStatusChange != null) ...[
                 const SizedBox(height: 12),
                 Row(
@@ -168,7 +191,6 @@ class TaskCard extends StatelessWidget {
                     ElevatedButton(
                       onPressed: onStatusChange,
                       style: ElevatedButton.styleFrom(
-                        // Cor do botão é a cor do status
                         backgroundColor: task.statusColor,
                         foregroundColor: Colors.white,
                         minimumSize: const Size(100, 36),
@@ -188,7 +210,6 @@ class TaskCard extends StatelessWidget {
     );
   }
 
-  // Converte o código do status para texto amigável
   String _getStatusText(String status) {
     switch (status) {
       case 'aberta':
@@ -204,24 +225,18 @@ class TaskCard extends StatelessWidget {
     }
   }
 
-  // Formata a data 
   String _formatDate(DateTime date) {
     final now = DateTime.now();
     final difference = now.difference(date);
 
-    // Mais de 7 dias: mostra data completa
     if (difference.inDays > 7) {
       return '${date.day}/${date.month}/${date.year}';
-    // Entre 1 e 7 dias: mostra dias
     } else if (difference.inDays > 0) {
       return '${difference.inDays}d atrás';
-    // Entre 1 e 24 horas: mostra horas
     } else if (difference.inHours > 0) {
       return '${difference.inHours}h atrás';
-    // Entre 1 e 60 minutos: mostra minutos
     } else if (difference.inMinutes > 0) {
       return '${difference.inMinutes}min atrás';
-    // Menos de 1 minuto: mostra "agora"
     } else {
       return 'agora';
     }
