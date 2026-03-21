@@ -17,7 +17,7 @@ class ApiService {
     };
   }
 
-  // 🔥 NOVO MÉTODO PÚBLICO para outros serviços acessarem os headers
+  // Método público para outros serviços acessarem os headers
   static Future<Map<String, String>> getHeaders() async {
     return await _getHeaders();
   }
@@ -155,11 +155,12 @@ class ApiService {
     }
   }
 
-  // Criar tarefa
+  // 🔥 ATUALIZADO: Criar tarefa com categoria
   static Future<Map<String, dynamic>> createTask({
     required String title,
     String? description,
     required int applicationId,
+    required String category, // 🔥 NOVO PARÂMETRO OBRIGATÓRIO
   }) async {
     if (currentUserId == null) {
       print('🔴 Erro: currentUserId é null');
@@ -180,11 +181,12 @@ class ApiService {
     try {
       final headers = await _getHeaders();
       
-      // Body no formato CAMELCASE que o controller espera
+      // Body com categoria
       final Map<String, dynamic> body = {
         'title': title,
         'applicationId': applicationId,
         'createdBy': currentUserId,
+        'category': category, // 🔥 ADICIONA CATEGORIA
       };
 
       // Adiciona description apenas se não for vazia
@@ -296,7 +298,7 @@ class ApiService {
     }
   }
 
-  // Atualizar status da tarefa - CORRIGIDO com a rota /status
+  // Atualizar status da tarefa
   static Future<Map<String, dynamic>> updateTaskStatus({
     required int taskId,
     required String status,
@@ -308,7 +310,6 @@ class ApiService {
     try {
       final headers = await _getHeaders();
       
-      // URL CORRIGIDA: adiciona /status no final
       final response = await http.patch(
         Uri.parse('$baseUrl/api/tasks/$taskId/status'),
         headers: headers,

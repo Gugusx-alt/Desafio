@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:feedbacks/services/api_service.dart';
-import 'package:feedbacks/services/application_service.dart'; // NOVO IMPORT
+import 'package:feedbacks/services/application_service.dart';
 import 'package:feedbacks/services/refresh_service.dart';
 
 class CreateTaskScreen extends StatefulWidget {
@@ -18,20 +18,28 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
   // ID da aplicação selecionada no dropdown
   int? _selectedApplicationId;
   
+  // 🔥 Categoria selecionada
+  String _selectedCategory = 'ajuste';
+  
   // Controles de estado
   bool _isLoading = false;              
   bool _isLoadingApplications = true;   
-  List<Map<String, dynamic>> _applications = []; // Lista de aplicações
-  String? _debugInfo;                    
+  List<Map<String, dynamic>> _applications = [];
+  String? _debugInfo;
+
+  // 🔥 Opções de categoria
+  final List<Map<String, dynamic>> _categories = [
+    {'value': 'bug', 'label': '🐛 Bug', 'color': Colors.red},
+    {'value': 'ajuste', 'label': '🔧 Ajuste', 'color': Colors.orange},
+    {'value': 'melhoria', 'label': '📈 Melhoria', 'color': Colors.green},
+  ];
 
   @override
   void initState() {
     super.initState();
-    _loadApplications(); // Carrega aplicações ao iniciar a tela
+    _loadApplications();
   }
  
-  /// Carrega APENAS as aplicações que o usuário tem acesso
-  /// Agora usando ApplicationService.getMyApplications()
   Future<void> _loadApplications() async {
     setState(() {
       _isLoadingApplications = true;
@@ -39,13 +47,11 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
     });
 
     try {
-      // 🔥 MUDANÇA: Agora usa ApplicationService que filtra por usuário
       final myApplications = await ApplicationService.getMyApplications();
       
       if (!mounted) return;
 
       setState(() {
-        // Converte a lista de Application para o formato Map que o dropdown espera
         _applications = myApplications.map((app) => {
           'id': app.id,
           'name': app.name,
@@ -55,7 +61,6 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
         _isLoadingApplications = false;
         
         if (_applications.isNotEmpty) {
-          // Seleciona a primeira aplicação por padrão
           _selectedApplicationId = _applications.first['id'] as int;
         } else {
           _debugInfo = 'Você não está vinculado a nenhuma aplicação. Procure o administrador.';
@@ -88,6 +93,12 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
       return;
     }
 
+    // 🔥 VALIDA CATEGORIA
+    if (_selectedCategory.isEmpty) {
+      _showErrorSnackBar('Selecione uma categoria');
+      return;
+    }
+
     if (ApiService.currentUserRole != 'cliente') {
       _showErrorSnackBar('Apenas clientes podem criar tarefas');
       return;
@@ -105,6 +116,7 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
       print('   Título: ${_titleController.text.trim()}');
       print('   Descrição: ${_descriptionController.text.trim()}');
       print('   App ID: $_selectedApplicationId');
+      print('   Categoria: $_selectedCategory');
       print('   User ID: ${ApiService.currentUserId}');
       
       final result = await ApiService.createTask(
@@ -113,6 +125,7 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
             ? null
             : _descriptionController.text.trim(),
         applicationId: _selectedApplicationId!,
+        category: _selectedCategory, // 🔥 ENVIA A CATEGORIA
       );
 
       print('🟢 Resposta do servidor: $result');
@@ -120,7 +133,6 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
       if (!mounted) return;
 
       if (result['success'] == true) {
-        // SUCESSO: Limpa campos e mostra mensagem verde
         _titleController.clear();
         _descriptionController.clear();
         
@@ -132,15 +144,12 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
           ),
         );
         
-        // 🔥 DISPARA A ATUALIZAÇÃO EM TEMPO REAL
         RefreshService().refreshDashboard();
         
-        // PERMANECE NA TELA para criar mais tarefas
         setState(() {
           _isLoading = false;
         });
       } else {
-        // ERRO: Mostra detalhes e mensagem vermelha
         setState(() {
           String errorMsg = 'Erro: ${result['error']}';
           if (result['details'] != null) {
@@ -155,7 +164,6 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
         );
       }
     } catch (e, stackTrace) {
-      // ERRO DE CONEXÃO
       print('🔴 Erro na requisição: $e');
       print('🔴 StackTrace: $stackTrace');
       
@@ -172,7 +180,6 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
     }
   }
 
-  /// Exibe um SnackBar de erro com fundo vermelho
   void _showErrorSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -183,7 +190,6 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
     );
   }
 
-  /// Libera recursos dos controladores quando a tela é destruída
   @override
   void dispose() {
     _titleController.dispose();
@@ -196,6 +202,7 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Criar tarefa'),
+        backgroundColor: Colors.deepPurple,
       ),
       body: Center(
         child: SingleChildScrollView(
@@ -203,9 +210,7 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
             padding: const EdgeInsets.all(24),
             child: LayoutBuilder(
               builder: (context, constraints) {
-                // Responsividade: limita largura máxima em telas grandes
-                final maxWidth =
-                    constraints.maxWidth > 500 ? 500.0 : double.infinity;
+                final maxWidth = constraints.maxWidth > 500 ? 500.0 : double.infinity;
 
                 return Center(
                   child: ConstrainedBox(
@@ -214,19 +219,14 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        // Título da tela
                         const Text(
                           'Nova tarefa',
                           textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                          ),
+                          style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                         ),
-                        
                         const SizedBox(height: 24),
                         
-                        // Campo para colocar o título da task
+                        // Campo Título
                         TextField(
                           controller: _titleController,
                           decoration: const InputDecoration(
@@ -236,10 +236,9 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
                           ),
                           enabled: !_isLoading,
                         ),
-                        
                         const SizedBox(height: 12),
                         
-                        // Campo para colocar uma descrição da task
+                        // Campo Descrição
                         TextField(
                           controller: _descriptionController,
                           maxLines: 4,
@@ -250,10 +249,45 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
                           ),
                           enabled: !_isLoading,
                         ),
-                        
                         const SizedBox(height: 12),
                         
-                        // #### DROPDOWN DE APLICAÇÕES (AGORA FILTRADO) ####
+                        // 🔥 DROPDOWN DE CATEGORIA
+                        DropdownButtonFormField<String>(
+                          value: _selectedCategory,
+                          decoration: const InputDecoration(
+                            labelText: 'Categoria *',
+                            border: OutlineInputBorder(),
+                          ),
+                          items: _categories.map((cat) {
+                            return DropdownMenuItem<String>(
+                              value: cat['value'],
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 12,
+                                    height: 12,
+                                    decoration: BoxDecoration(
+                                      color: cat['color'],
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(cat['label']),
+                                ],
+                              ),
+                            );
+                          }).toList(),
+                          onChanged: !_isLoading
+                              ? (value) {
+                                  setState(() {
+                                    _selectedCategory = value!;
+                                  });
+                                }
+                              : null,
+                        ),
+                        const SizedBox(height: 12),
+                        
+                        // Dropdown de Aplicações
                         _isLoadingApplications
                             ? const Center(child: CircularProgressIndicator())
                             : _applications.isEmpty
@@ -305,7 +339,7 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
                                         : null,
                                   ),
                         
-                        // #### ÁREA DE DEBUG (VISÍVEL APENAS EM ERRO) ####
+                        // Área de debug
                         if (_debugInfo != null) ...[
                           const SizedBox(height: 16),
                           Container(
@@ -315,69 +349,38 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
                               border: Border.all(color: Colors.red.shade200),
                               borderRadius: BorderRadius.circular(8),
                             ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'Informações de debug:',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.red,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  _debugInfo!,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.red.shade900,
-                                  ),
-                                ),
-                              ],
+                            child: Text(
+                              _debugInfo!,
+                              style: TextStyle(fontSize: 12, color: Colors.red.shade900),
                             ),
                           ),
                         ],
                         
                         const SizedBox(height: 24),
                         
-                        // Botão para criar a tarefa
+                        // Botão Criar
                         SizedBox(
                           height: 44,
                           child: ElevatedButton(
                             onPressed: (_isLoading || _applications.isEmpty) ? null : _handleCreateTask,
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.blue,
+                              backgroundColor: Colors.deepPurple,
                               foregroundColor: Colors.white,
                             ),
                             child: _isLoading
-                                ? const Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      SizedBox(
-                                        height: 20,
-                                        width: 20,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          color: Colors.white,
-                                        ),
-                                      ),
-                                      SizedBox(width: 12),
-                                      Text('Criando...'),
-                                    ],
+                                ? const SizedBox(
+                                    height: 20,
+                                    width: 20,
+                                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                                   )
                                 : const Text('Criar tarefa'),
                           ),
                         ),
                         
                         const SizedBox(height: 8),
-                        
-                        // informações do rodapé
                         Text(
-                          'As tarefas aparecem no dashboard para todos',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey.shade600,
-                          ),
+                          'As tarefas aparecem no dashboard agrupadas por status',
+                          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                           textAlign: TextAlign.center,
                         ),
                       ],
