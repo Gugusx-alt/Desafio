@@ -43,3 +43,23 @@ const double radiusXL = 24.0;
 const List<BoxShadow> shadowCard = [
   BoxShadow(color: Color(0x40000000), blurRadius: 12, offset: Offset(0, 4)),
 ];
+
+const List<BoxShadow> glowShadow = [
+  BoxShadow(color: Color(0x40E6A817), blurRadius: 20, offset: Offset(0, 4)),
+];
+
+// ─── Aliases de raio (compatibilidade) ───────────────────────────────────────
+const double radiusMd = radiusM;
+const double radiusLg = radiusL;
+
+// ─── Cores adicionais ─────────────────────────────────────────────────────────
+const Color secondaryColor = statusOpen;   // azul — papel de admin/destaque
+const Color accentColor    = statusDone;   // verde — papel de desenvolvedor
+const Color primaryLight   = Color(0xFFF0C04B); // âmbar claro
+
+// ─── Gradientes ──────────────────────────────────────────────────────────────
+const LinearGradient primaryGradient = LinearGradient(
+  begin: Alignment.topLeft,
+  end: Alignment.bottomRight,
+  colors: [primaryColor, Color(0xFF9D6E0B)],
+);

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:feedbacks/pallet.dart';
 import 'package:feedbacks/services/application_service.dart';
 import 'package:feedbacks/services/application_management_service.dart';
 import 'package:feedbacks/models/application.dart';
@@ -15,10 +16,12 @@ class ApplicationsDashboard extends StatefulWidget {
   const ApplicationsDashboard({super.key});
 
   @override
-  State<ApplicationsDashboard> createState() => _ApplicationsDashboardState();
+  State<ApplicationsDashboard> createState() =>
+      _ApplicationsDashboardState();
 }
 
-class _ApplicationsDashboardState extends State<ApplicationsDashboard> with SingleTickerProviderStateMixin {
+class _ApplicationsDashboardState extends State<ApplicationsDashboard>
+    with SingleTickerProviderStateMixin {
   int _selectedIndex = 0;
   late TabController _tabController;
   late StreamSubscription _refreshSubscription;
@@ -28,11 +31,10 @@ class _ApplicationsDashboardState extends State<ApplicationsDashboard> with Sing
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
     _tabController.addListener(() {
-      setState(() {
-        _selectedIndex = _tabController.index;
-      });
+      if (!_tabController.indexIsChanging) {
+        setState(() => _selectedIndex = _tabController.index);
+      }
     });
-    
     _refreshSubscription = RefreshService().refreshStream.listen((_) {});
   }
 
@@ -47,23 +49,33 @@ class _ApplicationsDashboardState extends State<ApplicationsDashboard> with Sing
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Sair'),
-        content: const Text('Tem certeza que deseja sair?'),
+        backgroundColor: surfaceColor,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(radiusLg),
+          side: const BorderSide(color: borderColor),
+        ),
+        title: const Text('Sair da conta',
+            style: TextStyle(color: textPrimary)),
+        content: const Text('Tem certeza que deseja sair?',
+            style: TextStyle(color: textSecondary)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
+            child: const Text('Cancelar',
+                style: TextStyle(color: textSecondary)),
           ),
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
               ApiService.logout();
               Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(builder: (context) => const LoginScreen()),
+                MaterialPageRoute(
+                    builder: (_) => const LoginScreen()),
                 (route) => false,
               );
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: statusCancelled),
             child: const Text('Sair'),
           ),
         ],
@@ -74,48 +86,59 @@ class _ApplicationsDashboardState extends State<ApplicationsDashboard> with Sing
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: backgroundColor,
       appBar: AppBar(
+        backgroundColor: surfaceColor,
+        elevation: 0,
         title: Text(
-          _selectedIndex == 0 
-              ? 'Minhas Aplicações' 
-              : _selectedIndex == 1 
-                  ? 'Todas as Aplicações' 
-                  : 'Gerenciar Usuários'
+          _selectedIndex == 0
+              ? 'Minhas Aplicações'
+              : _selectedIndex == 1
+                  ? 'Todas as Aplicações'
+                  : 'Usuários',
+          style: const TextStyle(
+              color: textPrimary,
+              fontSize: 17,
+              fontWeight: FontWeight.w600),
         ),
-        backgroundColor: Colors.deepPurple,
         actions: [
           if (_selectedIndex == 0)
             IconButton(
-              icon: const Icon(Icons.add),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const CreateApplicationScreen(),
-                  ),
-                );
-              },
+              icon: const Icon(Icons.add_rounded, color: primaryColor),
+              tooltip: 'Nova aplicação',
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (_) => const CreateApplicationScreen()),
+              ),
             ),
           IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: _logout,
+            icon: const Icon(Icons.logout_rounded, size: 20),
+            color: textSecondary,
             tooltip: 'Sair',
+            onPressed: _logout,
           ),
         ],
         bottom: TabBar(
           controller: _tabController,
-          indicatorColor: Colors.white,
+          indicatorColor: primaryColor,
+          indicatorWeight: 2,
+          labelColor: primaryColor,
+          unselectedLabelColor: textMuted,
+          labelStyle: const TextStyle(
+              fontSize: 13, fontWeight: FontWeight.w600),
+          unselectedLabelStyle: const TextStyle(fontSize: 13),
           tabs: const [
-            Tab(icon: Icon(Icons.apps), text: 'Minhas Apps'),
-            Tab(icon: Icon(Icons.list), text: 'Todas Apps'),
-            Tab(icon: Icon(Icons.people), text: 'Usuários'),
+            Tab(icon: Icon(Icons.apps_rounded, size: 18), text: 'Minhas Apps'),
+            Tab(icon: Icon(Icons.grid_view_rounded, size: 18), text: 'Todas Apps'),
+            Tab(icon: Icon(Icons.people_rounded, size: 18), text: 'Usuários'),
           ],
         ),
       ),
       body: TabBarView(
         controller: _tabController,
         children: const [
-          MyApplicationsManagementScreen(),
+          _MyApplicationsBody(),
           AllApplicationsScreen(),
           UsersManagementScreen(),
         ],
@@ -124,15 +147,17 @@ class _ApplicationsDashboardState extends State<ApplicationsDashboard> with Sing
   }
 }
 
-// 🔥 TELA DE GERENCIAMENTO DE APLICAÇÕES (Minhas Apps)
-class MyApplicationsManagementScreen extends StatefulWidget {
-  const MyApplicationsManagementScreen({super.key});
+// ─── Aba: Minhas Aplicações ──────────────────────────────────────────────────
+class _MyApplicationsBody extends StatefulWidget {
+  const _MyApplicationsBody();
 
   @override
-  State<MyApplicationsManagementScreen> createState() => _MyApplicationsManagementScreenState();
+  State<_MyApplicationsBody> createState() =>
+      _MyApplicationsManagementScreenState();
 }
 
-class _MyApplicationsManagementScreenState extends State<MyApplicationsManagementScreen> {
+class _MyApplicationsManagementScreenState
+    extends State<_MyApplicationsBody> {
   List<Application> _applications = [];
   bool _isLoading = true;
   String? _errorMessage;
@@ -145,20 +170,12 @@ class _MyApplicationsManagementScreenState extends State<MyApplicationsManagemen
     _loadApplications();
   }
 
-  // 🔥 ATUALIZADO: Busca TODAS as aplicações do admin (ativas e inativas)
   Future<void> _loadApplications() async {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
-
     final apps = await ApplicationService.getMyAllApplications();
-    
-    print('📊 Aplicações carregadas: ${apps.length}');
-    for (var app in apps) {
-      print('   - ${app.name}: status=${app.status}, taskCount=${app.taskCount}');
-    }
-    
     if (mounted) {
       setState(() {
         _applications = apps;
@@ -167,380 +184,432 @@ class _MyApplicationsManagementScreenState extends State<MyApplicationsManagemen
     }
   }
 
-  List<Application> get _filteredApplications {
-    List<Application> filtered = _applications;
-    
-    // Filtro por status
+  List<Application> get _filtered {
+    List<Application> list = _applications;
     if (_statusFilter != 'todos') {
-      filtered = filtered.where((app) => app.status == _statusFilter).toList();
+      list = list.where((a) => a.status == _statusFilter).toList();
     }
-    
-    // Filtro por busca
     if (_searchQuery.isNotEmpty) {
-      filtered = filtered.where((app) =>
-        app.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-        (app.description?.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false)
-      ).toList();
+      final q = _searchQuery.toLowerCase();
+      list = list
+          .where((a) =>
+              a.name.toLowerCase().contains(q) ||
+              (a.description?.toLowerCase().contains(q) ?? false))
+          .toList();
     }
-    
-    return filtered;
+    return list;
   }
 
-  Future<void> _handleApplicationAction(Application app) async {
+  Future<void> _handleAction(Application app) async {
     final isInactive = app.status == 'inativo';
     final hasTasks = (app.taskCount ?? 0) > 0;
 
-    String title, content, buttonText;
-    Color buttonColor;
+    final String title, content, btnText;
+    final Color btnColor;
 
     if (isInactive) {
       title = 'Reativar aplicação';
-      content = 'Deseja reativar "${app.name}"?\n\nEla voltará a ficar disponível para criação de tarefas.';
-      buttonText = 'Reativar';
-      buttonColor = Colors.green;
+      content =
+          'Deseja reativar "${app.name}"?\nEla voltará a aceitar tarefas.';
+      btnText = 'Reativar';
+      btnColor = statusDone;
     } else if (hasTasks) {
       title = 'Inativar aplicação';
-      content = '${app.name} possui ${app.taskCount} tarefa(s) vinculada(s).\n\n'
-          'Deseja INATIVAR esta aplicação?\n\n'
-          'Ela não poderá receber novas tarefas, mas as existentes permanecerão.';
-      buttonText = 'Inativar';
-      buttonColor = Colors.orange;
+      content =
+          '${app.name} possui ${app.taskCount} tarefa(s).\nDeseja inativar esta aplicação?';
+      btnText = 'Inativar';
+      btnColor = statusProgress;
     } else {
       title = 'Excluir aplicação';
-      content = 'Deseja EXCLUIR PERMANENTEMENTE "${app.name}"?\n\n'
-          'Ela não possui tarefas vinculadas. Esta ação não pode ser desfeita.';
-      buttonText = 'Excluir';
-      buttonColor = Colors.red;
+      content =
+          'Deseja excluir permanentemente "${app.name}"?\nEsta ação não pode ser desfeita.';
+      btnText = 'Excluir';
+      btnColor = statusCancelled;
     }
 
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(title),
-        content: Text(content),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancelar'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: buttonColor),
-            child: Text(buttonText),
-          ),
-        ],
-      ),
-    );
-
+    final confirm = await _confirm(title, content, btnText, btnColor);
     if (confirm != true) return;
 
     setState(() => _isLoading = true);
-
-    final result = await ApplicationManagementService.deleteApplication(app.id);
+    final result =
+        await ApplicationManagementService.deleteApplication(app.id);
 
     if (!mounted) return;
 
     if (result['success']) {
-      String msg;
-      if (result['reativado'] == true) {
-        msg = '✅ "${app.name}" reativada com sucesso!';
-      } else if (result['softDelete'] == true) {
-        msg = '⚠️ "${app.name}" inativada (possui ${app.taskCount} tarefa(s) vinculada(s))';
-      } else {
-        msg = '🗑️ "${app.name}" excluída permanentemente';
-      }
-      _showMessage(msg);
+      final msg = result['reativado'] == true
+          ? '"${app.name}" reativada'
+          : result['softDelete'] == true
+              ? '"${app.name}" inativada'
+              : '"${app.name}" excluída';
+      _snack(msg);
       _loadApplications();
       RefreshService().refreshDashboard();
     } else {
-      _showMessage(result['error'] ?? 'Erro', isError: true);
+      _snack(result['error'] ?? 'Erro', error: true);
       setState(() => _isLoading = false);
     }
   }
 
-  void _showMessage(String message, {bool isError = false}) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: isError ? Colors.red : Colors.green,
+  Future<bool?> _confirm(
+      String title, String content, String btnText, Color btnColor) {
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: surfaceColor,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(radiusLg),
+          side: const BorderSide(color: borderColor),
+        ),
+        title: Text(title,
+            style: const TextStyle(color: textPrimary, fontSize: 16)),
+        content: Text(content,
+            style: const TextStyle(color: textSecondary, fontSize: 14)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar',
+                style: TextStyle(color: textSecondary)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style:
+                ElevatedButton.styleFrom(backgroundColor: btnColor),
+            child: Text(btnText),
+          ),
+        ],
       ),
     );
   }
 
-  void _editApplication(Application app) async {
-    final result = await Navigator.push(
+  void _snack(String msg, {bool error = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(msg),
+      backgroundColor: error ? statusCancelled : statusDone,
+    ));
+  }
+
+  void _edit(Application app) async {
+    final ok = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
-        builder: (context) => EditApplicationScreen(application: app),
-      ),
+          builder: (_) => EditApplicationScreen(application: app)),
     );
-    if (result == true) _loadApplications();
+    if (ok == true) _loadApplications();
   }
 
   @override
   Widget build(BuildContext context) {
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    return Column(
+      children: [
+        // Barra de busca + filtros
+        Container(
+          color: surfaceColor,
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+          child: Column(
+            children: [
+              TextField(
+                decoration: InputDecoration(
+                  hintText: 'Buscar por nome ou descrição...',
+                  hintStyle:
+                      const TextStyle(color: textMuted, fontSize: 13),
+                  prefixIcon: const Icon(Icons.search_rounded,
+                      color: textMuted, size: 18),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(radiusMd),
+                    borderSide:
+                        const BorderSide(color: borderColor),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(radiusMd),
+                    borderSide:
+                        const BorderSide(color: borderColor),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(radiusMd),
+                    borderSide: const BorderSide(
+                        color: primaryColor, width: 1.5),
+                  ),
+                  filled: true,
+                  fillColor: surfaceElevated,
+                  contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 14, vertical: 10),
+                ),
+                style: const TextStyle(
+                    color: textPrimary, fontSize: 13),
+                onChanged: (v) =>
+                    setState(() => _searchQuery = v),
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  _chip('Todas', 'todos', textSecondary),
+                  const SizedBox(width: 8),
+                  _chip('Ativas', 'ativo', statusDone),
+                  const SizedBox(width: 8),
+                  _chip('Inativas', 'inativo', statusCancelled),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const Divider(height: 1, color: borderColor),
+        // Lista
+        Expanded(
+          child: _isLoading
+              ? const Center(
+                  child: CircularProgressIndicator(
+                      color: primaryColor))
+              : _errorMessage != null
+                  ? Center(
+                      child: Text(_errorMessage!,
+                          style: const TextStyle(
+                              color: statusCancelled)))
+                  : _filtered.isEmpty
+                      ? _empty()
+                      : RefreshIndicator(
+                          onRefresh: _loadApplications,
+                          color: primaryColor,
+                          child: ListView.separated(
+                            padding: const EdgeInsets.all(16),
+                            itemCount: _filtered.length,
+                            separatorBuilder: (_, __) =>
+                                const SizedBox(height: 8),
+                            itemBuilder: (_, i) =>
+                                _AppCard(
+                              app: _filtered[i],
+                              onEdit: () => _edit(_filtered[i]),
+                              onAction: () =>
+                                  _handleAction(_filtered[i]),
+                            ),
+                          ),
+                        ),
+        ),
+      ],
+    );
+  }
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Minhas Aplicações'),
-        backgroundColor: Colors.deepPurple,
-        automaticallyImplyLeading: false,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadApplications,
+  Widget _chip(String label, String value, Color color) {
+    final sel = _statusFilter == value;
+    return GestureDetector(
+      onTap: () {
+        setState(() => _statusFilter = value);
+        _loadApplications();
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+        decoration: BoxDecoration(
+          color: sel ? color.withOpacity(0.14) : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+              color: sel ? color : borderColor, width: 1),
+        ),
+        child: Text(label,
+            style: TextStyle(
+                color: sel ? color : textMuted,
+                fontSize: 12,
+                fontWeight: sel ? FontWeight.w600 : FontWeight.normal)),
+      ),
+    );
+  }
+
+  Widget _empty() {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.apps_rounded, color: textMuted, size: 40),
+          const SizedBox(height: 12),
+          Text(
+            _searchQuery.isEmpty
+                ? 'Nenhuma aplicação cadastrada'
+                : 'Nenhum resultado encontrado',
+            style: const TextStyle(color: textSecondary, fontSize: 14),
           ),
         ],
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(90),
-          child: Padding(
-            padding: const EdgeInsets.all(12),
+      ),
+    );
+  }
+}
+
+// ─── Card de aplicação ────────────────────────────────────────────────────────
+class _AppCard extends StatelessWidget {
+  final Application app;
+  final VoidCallback onEdit;
+  final VoidCallback onAction;
+
+  const _AppCard(
+      {required this.app,
+      required this.onEdit,
+      required this.onAction});
+
+  @override
+  Widget build(BuildContext context) {
+    final isInactive = app.status == 'inativo';
+    final hasTasks = (app.taskCount ?? 0) > 0;
+    final statusColor = isInactive ? statusCancelled : statusDone;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: surfaceColor,
+        borderRadius: BorderRadius.circular(radiusMd),
+        border: Border.all(color: borderColor),
+      ),
+      child: Row(
+        children: [
+          // Ícone
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: isInactive
+                  ? textMuted.withOpacity(0.1)
+                  : primaryColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(radiusS),
+            ),
+            child: Icon(
+              Icons.apps_rounded,
+              color: isInactive ? textMuted : primaryColor,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 12),
+          // Info
+          Expanded(
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                TextField(
-                  style: TextStyle(color: isDarkMode ? Colors.white : Colors.black87),
-                  decoration: InputDecoration(
-                    hintText: 'Buscar por nome ou descrição...',
-                    hintStyle: TextStyle(color: isDarkMode ? Colors.grey.shade400 : Colors.grey.shade600),
-                    prefixIcon: Icon(Icons.search, color: isDarkMode ? Colors.white70 : Colors.deepPurple.shade400),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide.none,
-                    ),
-                    filled: true,
-                    fillColor: isDarkMode ? Colors.grey.shade800 : Colors.white,
+                Text(
+                  app.name,
+                  style: TextStyle(
+                    color: isInactive ? textMuted : textPrimary,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                    decoration: isInactive
+                        ? TextDecoration.lineThrough
+                        : null,
                   ),
-                  onChanged: (value) => setState(() => _searchQuery = value),
                 ),
-                const SizedBox(height: 8),
+                if (app.description != null &&
+                    app.description!.isNotEmpty) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    app.description!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        color: textSecondary, fontSize: 12),
+                  ),
+                ],
+                const SizedBox(height: 6),
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    _buildFilterChip('Todas', 'todos', Colors.grey, isDarkMode),
-                    const SizedBox(width: 8),
-                    _buildFilterChip('Ativas', 'ativo', Colors.green, isDarkMode),
-                    const SizedBox(width: 8),
-                    _buildFilterChip('Inativas', 'inativo', Colors.red, isDarkMode),
+                    _Badge(
+                        label: isInactive ? 'Inativa' : 'Ativa',
+                        color: statusColor),
+                    const SizedBox(width: 6),
+                    _Badge(
+                        label:
+                            '${app.taskCount ?? 0} tarefas',
+                        color: textMuted,
+                        icon: Icons.assignment_rounded),
                   ],
                 ),
               ],
             ),
           ),
-        ),
+          // Ações
+          Row(
+            children: [
+              _ActionBtn(
+                icon: Icons.edit_rounded,
+                color: secondaryColor,
+                tooltip: 'Editar',
+                onTap: onEdit,
+              ),
+              const SizedBox(width: 4),
+              _ActionBtn(
+                icon: isInactive
+                    ? Icons.restore_rounded
+                    : (hasTasks
+                        ? Icons.block_rounded
+                        : Icons.delete_outline_rounded),
+                color: isInactive
+                    ? statusDone
+                    : (hasTasks
+                        ? statusProgress
+                        : statusCancelled),
+                tooltip: isInactive
+                    ? 'Reativar'
+                    : (hasTasks ? 'Inativar' : 'Excluir'),
+                onTap: onAction,
+              ),
+            ],
+          ),
+        ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _errorMessage != null
-              ? Center(child: Text(_errorMessage!))
-              : _filteredApplications.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            _searchQuery.isEmpty ? Icons.apps : Icons.search_off,
-                            size: 48,
-                            color: isDarkMode ? Colors.grey.shade500 : Colors.grey.shade400,
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            _searchQuery.isEmpty 
-                                ? 'Nenhuma aplicação cadastrada' 
-                                : 'Nenhuma aplicação encontrada',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: isDarkMode ? Colors.grey.shade400 : Colors.grey.shade600,
-                            ),
-                          ),
-                          if (_searchQuery.isEmpty)
-                            const SizedBox(height: 16),
-                          if (_searchQuery.isEmpty)
-                            ElevatedButton(
-                              onPressed: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => const CreateApplicationScreen(),
-                                  ),
-                                );
-                              },
-                              child: const Text('Criar primeira aplicação'),
-                            ),
-                        ],
-                      ),
-                    )
-                  : RefreshIndicator(
-                      onRefresh: _loadApplications,
-                      child: ListView.builder(
-                        padding: const EdgeInsets.all(8),
-                        itemCount: _filteredApplications.length,
-                        itemBuilder: (context, index) {
-                          final app = _filteredApplications[index];
-                          final isInactive = app.status == 'inativo';
-                          final hasTasks = (app.taskCount ?? 0) > 0;
-
-                          return Card(
-                            color: isDarkMode ? Colors.grey.shade900 : Colors.white,
-                            elevation: 1,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: ListTile(
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                              leading: CircleAvatar(
-                                backgroundColor: isInactive 
-                                    ? (isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300)
-                                    : Colors.deepPurple.withOpacity(0.2),
-                                child: Icon(
-                                  Icons.apps,
-                                  color: isInactive 
-                                      ? (isDarkMode ? Colors.grey.shade500 : Colors.grey.shade600)
-                                      : Colors.deepPurple,
-                                ),
-                              ),
-                              title: Text(
-                                app.name,
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w500,
-                                  fontSize: 16,
-                                  decoration: isInactive ? TextDecoration.lineThrough : null,
-                                  color: isInactive 
-                                      ? (isDarkMode ? Colors.grey.shade500 : Colors.grey.shade600)
-                                      : (isDarkMode ? Colors.white : Colors.black87),
-                                ),
-                              ),
-                              subtitle: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  if (app.description != null && app.description!.isNotEmpty)
-                                    Text(
-                                      app.description!,
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        color: isDarkMode ? Colors.grey.shade400 : Colors.grey.shade700,
-                                      ),
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  const SizedBox(height: 6),
-                                  Wrap(
-                                    spacing: 8,
-                                    children: [
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                        decoration: BoxDecoration(
-                                          color: isInactive 
-                                              ? (isDarkMode ? Colors.grey.shade800 : Colors.grey.shade200)
-                                              : Colors.deepPurple.withOpacity(0.1),
-                                          borderRadius: BorderRadius.circular(12),
-                                        ),
-                                        child: Text(
-                                          app.status == 'ativo' ? 'Ativa' : 'Inativa',
-                                          style: TextStyle(
-                                            fontSize: 11,
-                                            color: isInactive 
-                                                ? (isDarkMode ? Colors.grey.shade400 : Colors.grey.shade600)
-                                                : Colors.deepPurple,
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
-                                      ),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                        decoration: BoxDecoration(
-                                          color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade100,
-                                          borderRadius: BorderRadius.circular(12),
-                                        ),
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Icon(
-                                              Icons.assignment,
-                                              size: 12,
-                                              color: isDarkMode ? Colors.grey.shade400 : Colors.grey.shade600,
-                                            ),
-                                            const SizedBox(width: 4),
-                                            Text(
-                                              '${app.taskCount ?? 0}',
-                                              style: TextStyle(
-                                                fontSize: 11,
-                                                color: isDarkMode ? Colors.grey.shade400 : Colors.grey.shade700,
-                                                fontWeight: FontWeight.w500,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                        decoration: BoxDecoration(
-                                          color: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade100,
-                                          borderRadius: BorderRadius.circular(12),
-                                        ),
-                                        child: Text(
-                                          'ID: ${app.id}',
-                                          style: TextStyle(
-                                            fontSize: 11,
-                                            color: isDarkMode ? Colors.grey.shade400 : Colors.grey.shade700,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                              trailing: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  IconButton(
-                                    icon: Icon(Icons.edit, size: 20, color: Colors.blue.shade400),
-                                    onPressed: () => _editApplication(app),
-                                    tooltip: 'Editar',
-                                  ),
-                                  IconButton(
-                                    icon: Icon(
-                                      isInactive ? Icons.restore : (hasTasks ? Icons.block : Icons.delete_outline),
-                                      size: 20,
-                                      color: isInactive 
-                                          ? Colors.green.shade400
-                                          : (hasTasks ? Colors.orange.shade400 : Colors.red.shade400),
-                                    ),
-                                    onPressed: () => _handleApplicationAction(app),
-                                    tooltip: isInactive ? 'Reativar' : (hasTasks ? 'Inativar' : 'Excluir'),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
     );
   }
+}
 
-  Widget _buildFilterChip(String label, String value, Color color, bool isDarkMode) {
-    final isSelected = _statusFilter == value;
-    return FilterChip(
-      label: Text(
-        label,
-        style: TextStyle(
-          color: isSelected ? color : (isDarkMode ? Colors.grey.shade300 : Colors.grey.shade700),
-          fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+class _Badge extends StatelessWidget {
+  final String label;
+  final Color color;
+  final IconData? icon;
+  const _Badge({required this.label, required this.color, this.icon});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 10, color: color),
+            const SizedBox(width: 3),
+          ],
+          Text(label,
+              style: TextStyle(
+                  color: color,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w500)),
+        ],
+      ),
+    );
+  }
+}
+
+class _ActionBtn extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final String tooltip;
+  final VoidCallback onTap;
+  const _ActionBtn(
+      {required this.icon,
+      required this.color,
+      required this.tooltip,
+      required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(radiusS),
+        child: Padding(
+          padding: const EdgeInsets.all(6),
+          child: Icon(icon, size: 18, color: color),
         ),
       ),
-      selected: isSelected,
-      onSelected: (_) {
-        setState(() => _statusFilter = value);
-        _loadApplications();
-      },
-      backgroundColor: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade100,
-      selectedColor: color.withOpacity(0.2),
-      side: BorderSide(
-        color: isSelected ? color : (isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300),
-        width: 1,
-      ),
-      shape: const StadiumBorder(),
     );
   }
 }

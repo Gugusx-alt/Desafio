@@ -17,6 +17,7 @@ dependencies:
   open_file: ^3.3.0           # Para abrir arquivos baixados
   path_provider: ^2.1.0       # Para acessar diretórios do dispositivo
   permission_handler: ^11.0.0 # Para pedir permissões (Android/iOS)
+  socket_io_client: ^2.0.3+1  # WebSocket para chat em tempo real
 
 dev_dependencies:
   flutter_test:

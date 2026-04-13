@@ -1,17 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:feedbacks/pallet.dart';
 import 'package:feedbacks/services/application_service.dart';
 import 'package:feedbacks/models/application.dart';
-import 'package:feedbacks/services/api_service.dart'; // ← ADICIONADO
-import 'package:intl/intl.dart'; // Para formatar datas
+import 'package:feedbacks/services/api_service.dart';
+import 'package:intl/intl.dart';
 
 class AllApplicationsScreen extends StatefulWidget {
   const AllApplicationsScreen({super.key});
 
   @override
-  State<AllApplicationsScreen> createState() => _AllApplicationsScreenState();
+  State<AllApplicationsScreen> createState() =>
+      _AllApplicationsScreenState();
 }
 
-class _AllApplicationsScreenState extends State<AllApplicationsScreen> {
+class _AllApplicationsScreenState
+    extends State<AllApplicationsScreen> {
   List<Application> _applications = [];
   bool _isLoading = true;
   String? _errorMessage;
@@ -28,9 +31,7 @@ class _AllApplicationsScreenState extends State<AllApplicationsScreen> {
       _isLoading = true;
       _errorMessage = null;
     });
-
     final apps = await ApplicationService.getAllApplications();
-    
     if (mounted) {
       setState(() {
         _applications = apps;
@@ -39,294 +40,355 @@ class _AllApplicationsScreenState extends State<AllApplicationsScreen> {
     }
   }
 
-  List<Application> get _filteredApplications {
+  List<Application> get _filtered {
     if (_searchQuery.isEmpty) return _applications;
-    return _applications.where((app) =>
-      app.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-      (app.description?.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false)
-    ).toList();
+    final q = _searchQuery.toLowerCase();
+    return _applications
+        .where((a) =>
+            a.name.toLowerCase().contains(q) ||
+            (a.description?.toLowerCase().contains(q) ?? false))
+        .toList();
   }
 
-  String _formatDate(DateTime date) {
-    return DateFormat('dd/MM/yyyy HH:mm').format(date);
-  }
-
-  Color _getStatusColor(int? createdBy) {
-    // Cores diferentes para cada admin (baseado no ID)
-    switch (createdBy) {
-      case 5: return Colors.deepPurple; // Admin atual
-      case 1: return Colors.blue;
-      case 2: return Colors.green;
-      default: return Colors.grey;
-    }
-  }
+  String _fmt(DateTime d) =>
+      DateFormat('dd/MM/yyyy HH:mm').format(d);
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Todas as Aplicações'),
-        backgroundColor: Colors.deepPurple,
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(60),
-          child: Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: TextField(
-              decoration: InputDecoration(
-                hintText: 'Buscar aplicações...',
-                hintStyle: const TextStyle(color: Colors.white70),
-                prefixIcon: const Icon(Icons.search, color: Colors.white),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide.none,
-                ),
-                filled: true,
-                fillColor: Colors.white.withOpacity(0.2),
-              ),
-              style: const TextStyle(color: Colors.white),
-              onChanged: (value) {
-                setState(() {
-                  _searchQuery = value;
-                });
-              },
-            ),
-          ),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadApplications,
-            tooltip: 'Recarregar',
-          ),
-        ],
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _errorMessage != null
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.error_outline, size: 48, color: Colors.red.shade300),
-                      const SizedBox(height: 16),
-                      Text(_errorMessage!),
-                      const SizedBox(height: 16),
-                      ElevatedButton(
-                        onPressed: _loadApplications,
-                        child: const Text('Tentar novamente'),
-                      ),
-                    ],
-                  ),
-                )
-              : _filteredApplications.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            _searchQuery.isEmpty ? Icons.apps : Icons.search_off,
-                            size: 64,
-                            color: Colors.grey.shade400,
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            _searchQuery.isEmpty
-                                ? 'Nenhuma aplicação encontrada'
-                                : 'Nenhuma aplicação corresponde à busca',
-                            style: const TextStyle(fontSize: 18),
-                          ),
-                          if (_searchQuery.isNotEmpty) ...[
-                            const SizedBox(height: 16),
-                            ElevatedButton(
-                              onPressed: () {
-                                setState(() {
-                                  _searchQuery = '';
-                                });
-                              },
-                              child: const Text('Limpar busca'),
-                            ),
-                          ],
-                        ],
-                      ),
-                    )
-                  : RefreshIndicator(
-                      onRefresh: _loadApplications,
-                      child: ListView.builder(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: _filteredApplications.length,
-                        itemBuilder: (context, index) {
-                          final app = _filteredApplications[index];
-                          final isCurrentUserAdmin = app.createdBy == ApiService.currentUserId;
-                          
-                          return Card(
-                            margin: const EdgeInsets.only(bottom: 12),
-                            elevation: isCurrentUserAdmin ? 4 : 1,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              side: isCurrentUserAdmin
-                                  ? BorderSide(color: Colors.deepPurple.shade300, width: 2)
-                                  : BorderSide.none,
-                            ),
-                            child: ListTile(
-                              contentPadding: const EdgeInsets.all(16),
-                              leading: CircleAvatar(
-                                radius: 25,
-                                backgroundColor: _getStatusColor(app.createdBy).withOpacity(0.2),
-                                child: Icon(
-                                  Icons.apps,
-                                  color: _getStatusColor(app.createdBy),
-                                  size: 25,
-                                ),
-                              ),
-                              title: Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      app.name,
-                                      style: TextStyle(
-                                        fontWeight: isCurrentUserAdmin ? FontWeight.bold : FontWeight.normal,
-                                        fontSize: 16,
-                                      ),
-                                    ),
-                                  ),
-                                  if (isCurrentUserAdmin)
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                      decoration: BoxDecoration(
-                                        color: Colors.deepPurple.shade100,
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      child: const Text(
-                                        'Sua',
-                                        style: TextStyle(
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.deepPurple,
-                                        ),
-                                      ),
-                                    ),
-                                ],
-                              ),
-                              subtitle: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  if (app.description != null && app.description!.isNotEmpty) ...[
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      app.description!,
-                                      style: const TextStyle(fontSize: 13),
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ],
-                                  const SizedBox(height: 8),
-                                  Row(
-                                    children: [
-                                      Icon(
-                                        Icons.person_outline,
-                                        size: 14,
-                                        color: Colors.grey.shade600,
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        'Criado por: Admin #${app.createdBy ?? '?'}',
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          color: Colors.grey.shade600,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 16),
-                                      Icon(
-                                        Icons.calendar_today,
-                                        size: 12,
-                                        color: Colors.grey.shade600,
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        _formatDate(app.createdAt),
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          color: Colors.grey.shade600,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                              trailing: PopupMenuButton<String>(
-                                icon: const Icon(Icons.more_vert),
-                                onSelected: (value) {
-                                  if (value == 'details') {
-                                    _showAppDetails(app);
-                                  }
-                                },
-                                itemBuilder: (context) => [
-                                  const PopupMenuItem(
-                                    value: 'details',
-                                    child: Row(
-                                      children: [
-                                        Icon(Icons.info_outline, size: 18),
-                                        SizedBox(width: 8),
-                                        Text('Ver detalhes'),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              onTap: () => _showAppDetails(app),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-    );
-  }
-
-  void _showAppDetails(Application app) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Row(
-          children: [
-            Icon(Icons.apps, color: Colors.deepPurple),
-            const SizedBox(width: 8),
-            Expanded(child: Text(app.name)),
-          ],
-        ),
-        content: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
+    return Column(
+      children: [
+        // Barra de busca
+        Container(
+          color: surfaceColor,
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+          child: Row(
             children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.grey.shade200),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Descrição:',
-                      style: TextStyle(fontWeight: FontWeight.bold),
+              Expanded(
+                child: TextField(
+                  decoration: InputDecoration(
+                    hintText: 'Buscar aplicações...',
+                    hintStyle:
+                        const TextStyle(color: textMuted, fontSize: 13),
+                    prefixIcon: const Icon(Icons.search_rounded,
+                        color: textMuted, size: 18),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(radiusMd),
+                      borderSide:
+                          const BorderSide(color: borderColor),
                     ),
-                    const SizedBox(height: 4),
-                    Text(app.description ?? 'Sem descrição'),
-                  ],
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(radiusMd),
+                      borderSide:
+                          const BorderSide(color: borderColor),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(radiusMd),
+                      borderSide: const BorderSide(
+                          color: primaryColor, width: 1.5),
+                    ),
+                    filled: true,
+                    fillColor: surfaceElevated,
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 10),
+                  ),
+                  style: const TextStyle(
+                      color: textPrimary, fontSize: 13),
+                  onChanged: (v) =>
+                      setState(() => _searchQuery = v),
                 ),
               ),
-              const SizedBox(height: 16),
-              _buildInfoRow('ID', app.id.toString()),
-              _buildInfoRow('Criado por', 'Admin #${app.createdBy ?? '?'}'),
-              _buildInfoRow('Data de criação', _formatDate(app.createdAt)),
+              const SizedBox(width: 8),
+              IconButton(
+                icon: const Icon(Icons.refresh_rounded, size: 18),
+                color: textMuted,
+                onPressed: _loadApplications,
+              ),
             ],
           ),
         ),
+        const Divider(height: 1, color: borderColor),
+        // Lista
+        Expanded(
+          child: _isLoading
+              ? const Center(
+                  child: CircularProgressIndicator(
+                      color: primaryColor))
+              : _errorMessage != null
+                  ? Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.error_outline_rounded,
+                              color: statusCancelled, size: 40),
+                          const SizedBox(height: 12),
+                          Text(_errorMessage!,
+                              style: const TextStyle(
+                                  color: textSecondary)),
+                          const SizedBox(height: 16),
+                          ElevatedButton(
+                            onPressed: _loadApplications,
+                            child:
+                                const Text('Tentar novamente'),
+                          ),
+                        ],
+                      ),
+                    )
+                  : _filtered.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                _searchQuery.isEmpty
+                                    ? Icons.apps_rounded
+                                    : Icons.search_off_rounded,
+                                color: textMuted,
+                                size: 40,
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                _searchQuery.isEmpty
+                                    ? 'Nenhuma aplicação encontrada'
+                                    : 'Sem resultados para "$_searchQuery"',
+                                style: const TextStyle(
+                                    color: textSecondary,
+                                    fontSize: 14),
+                              ),
+                            ],
+                          ),
+                        )
+                      : RefreshIndicator(
+                          onRefresh: _loadApplications,
+                          color: primaryColor,
+                          child: ListView.separated(
+                            padding: const EdgeInsets.all(16),
+                            itemCount: _filtered.length,
+                            separatorBuilder: (_, __) =>
+                                const SizedBox(height: 8),
+                            itemBuilder: (_, i) {
+                              final app = _filtered[i];
+                              final isMine =
+                                  app.createdBy ==
+                                      ApiService.currentUserId;
+                              return GestureDetector(
+                                onTap: () =>
+                                    _showDetails(app),
+                                child: Container(
+                                  padding:
+                                      const EdgeInsets.all(14),
+                                  decoration: BoxDecoration(
+                                    color: surfaceColor,
+                                    borderRadius:
+                                        BorderRadius.circular(
+                                            radiusMd),
+                                    border: Border.all(
+                                      color: isMine
+                                          ? primaryColor
+                                              .withOpacity(0.35)
+                                          : borderColor,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        width: 40,
+                                        height: 40,
+                                        decoration: BoxDecoration(
+                                          color: isMine
+                                              ? primaryColor
+                                                  .withOpacity(0.12)
+                                              : surfaceElevated,
+                                          borderRadius:
+                                              BorderRadius.circular(
+                                                  radiusS),
+                                        ),
+                                        child: Icon(
+                                          Icons.apps_rounded,
+                                          color: isMine
+                                              ? primaryColor
+                                              : textSecondary,
+                                          size: 20,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment
+                                                  .start,
+                                          children: [
+                                            Row(
+                                              children: [
+                                                Expanded(
+                                                  child: Text(
+                                                    app.name,
+                                                    style:
+                                                        const TextStyle(
+                                                      color:
+                                                          textPrimary,
+                                                      fontWeight:
+                                                          FontWeight
+                                                              .w600,
+                                                      fontSize: 14,
+                                                    ),
+                                                  ),
+                                                ),
+                                                if (isMine)
+                                                  Container(
+                                                    margin:
+                                                        const EdgeInsets
+                                                            .only(
+                                                            left: 6),
+                                                    padding:
+                                                        const EdgeInsets
+                                                            .symmetric(
+                                                            horizontal:
+                                                                6,
+                                                            vertical:
+                                                                2),
+                                                    decoration:
+                                                        BoxDecoration(
+                                                      color: primaryColor
+                                                          .withOpacity(
+                                                              0.15),
+                                                      borderRadius:
+                                                          BorderRadius
+                                                              .circular(
+                                                                  4),
+                                                    ),
+                                                    child: const Text(
+                                                      'Sua',
+                                                      style: TextStyle(
+                                                        color:
+                                                            primaryColor,
+                                                        fontSize: 10,
+                                                        fontWeight:
+                                                            FontWeight
+                                                                .w600,
+                                                      ),
+                                                    ),
+                                                  ),
+                                              ],
+                                            ),
+                                            if (app.description !=
+                                                    null &&
+                                                app.description!
+                                                    .isNotEmpty) ...[
+                                              const SizedBox(height: 3),
+                                              Text(
+                                                app.description!,
+                                                maxLines: 1,
+                                                overflow:
+                                                    TextOverflow
+                                                        .ellipsis,
+                                                style: const TextStyle(
+                                                    color:
+                                                        textSecondary,
+                                                    fontSize: 12),
+                                              ),
+                                            ],
+                                            const SizedBox(height: 6),
+                                            Row(
+                                              children: [
+                                                const Icon(
+                                                    Icons
+                                                        .person_outline_rounded,
+                                                    size: 11,
+                                                    color: textMuted),
+                                                const SizedBox(
+                                                    width: 4),
+                                                Text(
+                                                  'Admin #${app.createdBy ?? '?'}',
+                                                  style: const TextStyle(
+                                                      color: textMuted,
+                                                      fontSize: 11),
+                                                ),
+                                                const SizedBox(
+                                                    width: 12),
+                                                const Icon(
+                                                    Icons
+                                                        .calendar_today_rounded,
+                                                    size: 10,
+                                                    color: textMuted),
+                                                const SizedBox(
+                                                    width: 4),
+                                                Text(
+                                                  _fmt(app.createdAt),
+                                                  style: const TextStyle(
+                                                      color: textMuted,
+                                                      fontSize: 11),
+                                                ),
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const Icon(
+                                          Icons
+                                              .chevron_right_rounded,
+                                          color: textMuted,
+                                          size: 18),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+        ),
+      ],
+    );
+  }
+
+  void _showDetails(Application app) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: surfaceColor,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(radiusLg),
+          side: const BorderSide(color: borderColor),
+        ),
+        title: Row(
+          children: [
+            const Icon(Icons.apps_rounded,
+                color: primaryColor, size: 20),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(app.name,
+                  style: const TextStyle(
+                      color: textPrimary, fontSize: 16)),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: surfaceElevated,
+                borderRadius: BorderRadius.circular(radiusMd),
+                border:
+                    const BorderSide(color: borderColor).asBorderSide,
+              ),
+              child: Text(
+                app.description ?? 'Sem descrição',
+                style: const TextStyle(
+                    color: textSecondary, fontSize: 13),
+              ),
+            ),
+            const SizedBox(height: 14),
+            _row('ID', app.id.toString()),
+            _row('Criado por', 'Admin #${app.createdBy ?? '?'}'),
+            _row('Data', _fmt(app.createdAt)),
+          ],
+        ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(ctx),
             child: const Text('Fechar'),
           ),
         ],
@@ -334,27 +396,28 @@ class _AllApplicationsScreenState extends State<AllApplicationsScreen> {
     );
   }
 
-  Widget _buildInfoRow(String label, String value) {
+  Widget _row(String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 90,
-            child: Text(
-              label,
-              style: const TextStyle(
-                fontWeight: FontWeight.w500,
-                color: Colors.grey,
-              ),
-            ),
+            width: 80,
+            child: Text(label,
+                style: const TextStyle(
+                    color: textMuted, fontSize: 12)),
           ),
           Expanded(
-            child: Text(value),
+            child: Text(value,
+                style: const TextStyle(
+                    color: textPrimary, fontSize: 13)),
           ),
         ],
       ),
     );
   }
+}
+
+extension on BorderSide {
+  Border get asBorderSide => Border.all(color: color, width: width);
 }
