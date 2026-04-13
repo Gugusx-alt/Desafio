@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:feedbacks/services/api_service.dart';
 import 'package:feedbacks/services/application_service.dart';
 import 'package:feedbacks/services/refresh_service.dart';
+import 'package:feedbacks/pallet.dart';
 
 class CreateTaskScreen extends StatefulWidget {
   const CreateTaskScreen({super.key});
@@ -11,27 +12,20 @@ class CreateTaskScreen extends StatefulWidget {
 }
 
 class _CreateTaskScreenState extends State<CreateTaskScreen> {
-  // Controladores para os campos de texto
-  final _titleController = TextEditingController();
+  final _titleController       = TextEditingController();
   final _descriptionController = TextEditingController();
-  
-  // ID da aplicação selecionada no dropdown
-  int? _selectedApplicationId;
-  
-  // 🔥 Categoria selecionada
-  String _selectedCategory = 'ajuste';
-  
-  // Controles de estado
-  bool _isLoading = false;              
-  bool _isLoadingApplications = true;   
-  List<Map<String, dynamic>> _applications = [];
-  String? _debugInfo;
 
-  // 🔥 Opções de categoria
-  final List<Map<String, dynamic>> _categories = [
-    {'value': 'bug', 'label': '🐛 Bug', 'color': Colors.red},
-    {'value': 'ajuste', 'label': '🔧 Ajuste', 'color': Colors.orange},
-    {'value': 'melhoria', 'label': '📈 Melhoria', 'color': Colors.green},
+  int?   _selectedApplicationId;
+  String _selectedCategory          = 'ajuste';
+  bool   _isLoading                 = false;
+  bool   _isLoadingApplications     = true;
+  List<Map<String, dynamic>> _applications = [];
+  String? _errorInfo;
+
+  static const List<_CategoryOption> _categories = [
+    _CategoryOption('bug',      '🐛  Bug',      categoryBug,    'Algo que não funciona corretamente'),
+    _CategoryOption('ajuste',   '🔧  Ajuste',   categoryAdjust, 'Modificação ou correção pontual'),
+    _CategoryOption('melhoria', '📈  Melhoria', categoryImprove,'Nova funcionalidade ou aprimoramento'),
   ];
 
   @override
@@ -39,155 +33,67 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
     super.initState();
     _loadApplications();
   }
- 
+
   Future<void> _loadApplications() async {
+    setState(() { _isLoadingApplications = true; _errorInfo = null; });
+    final apps = await ApplicationService.getMyApplications();
+    if (!mounted) return;
     setState(() {
-      _isLoadingApplications = true;
-      _debugInfo = null;
-    });
-
-    try {
-      final myApplications = await ApplicationService.getMyApplications();
-      
-      if (!mounted) return;
-
-      setState(() {
-        _applications = myApplications.map((app) => {
-          'id': app.id,
-          'name': app.name,
-          'description': app.description,
-        }).toList();
-        
-        _isLoadingApplications = false;
-        
-        if (_applications.isNotEmpty) {
-          _selectedApplicationId = _applications.first['id'] as int;
-        } else {
-          _debugInfo = 'Você não está vinculado a nenhuma aplicação. Procure o administrador.';
-        }
-      });
-      
-      print('✅ Aplicações do usuário carregadas: $_applications');
-    } catch (e) {
-      print('🔴 Erro ao carregar aplicações: $e');
-      
-      if (!mounted) return;
-      
-      setState(() {
-        _debugInfo = 'Erro ao carregar aplicações: $e';
-        _isLoadingApplications = false;
-      });
-    }
-  }
-
-  Future<void> _handleCreateTask() async {
-    // #### VALIDAÇÕES ####
-    
-    if (_titleController.text.isEmpty) {
-      _showErrorSnackBar('Preencha o título da tarefa');
-      return;
-    }
-
-    if (_selectedApplicationId == null) {
-      _showErrorSnackBar('Selecione uma aplicação');
-      return;
-    }
-
-    // 🔥 VALIDA CATEGORIA
-    if (_selectedCategory.isEmpty) {
-      _showErrorSnackBar('Selecione uma categoria');
-      return;
-    }
-
-    if (ApiService.currentUserRole != 'cliente') {
-      _showErrorSnackBar('Apenas clientes podem criar tarefas');
-      return;
-    }
-
-    // #### REQUISIÇÃO ####
-    
-    setState(() {
-      _isLoading = true;
-      _debugInfo = null;
-    });
-
-    try {
-      print('🔵 Enviando requisição para criar tarefa:');
-      print('   Título: ${_titleController.text.trim()}');
-      print('   Descrição: ${_descriptionController.text.trim()}');
-      print('   App ID: $_selectedApplicationId');
-      print('   Categoria: $_selectedCategory');
-      print('   User ID: ${ApiService.currentUserId}');
-      
-      final result = await ApiService.createTask(
-        title: _titleController.text.trim(),
-        description: _descriptionController.text.trim().isEmpty
-            ? null
-            : _descriptionController.text.trim(),
-        applicationId: _selectedApplicationId!,
-        category: _selectedCategory, // 🔥 ENVIA A CATEGORIA
-      );
-
-      print('🟢 Resposta do servidor: $result');
-
-      if (!mounted) return;
-
-      if (result['success'] == true) {
-        _titleController.clear();
-        _descriptionController.clear();
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ Tarefa criada com sucesso!'),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 2),
-          ),
-        );
-        
-        RefreshService().refreshDashboard();
-        
-        setState(() {
-          _isLoading = false;
-        });
+      _applications = apps.map((a) => {'id': a.id, 'name': a.name}).toList();
+      if (_applications.isNotEmpty) {
+        _selectedApplicationId = _applications.first['id'] as int;
       } else {
-        setState(() {
-          String errorMsg = 'Erro: ${result['error']}';
-          if (result['details'] != null) {
-            errorMsg += '\nDetalhes: ${result['details']}';
-          }
-          _debugInfo = errorMsg;
-          _isLoading = false;
-        });
-        
-        _showErrorSnackBar(
-          result['error'] ?? 'Erro ao criar tarefa',
-        );
+        _errorInfo = 'Você não está vinculado a nenhuma aplicação.';
       }
-    } catch (e, stackTrace) {
-      print('🔴 Erro na requisição: $e');
-      print('🔴 StackTrace: $stackTrace');
-      
-      setState(() {
-        _debugInfo = 'Exceção: $e';
-        _isLoading = false;
-      });
-      
-      if (!mounted) return;
-      
-      _showErrorSnackBar(
-        'Erro de conexão com o servidor',
-      );
-    }
+      _isLoadingApplications = false;
+    });
   }
 
-  void _showErrorSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('❌ $message'),
-        backgroundColor: Colors.red,
-        duration: const Duration(seconds: 5),
-      ),
+  Future<void> _submit() async {
+    final title = _titleController.text.trim();
+    if (title.isEmpty) { _snack('Preencha o título da tarefa'); return; }
+    if (_selectedApplicationId == null) { _snack('Selecione uma aplicação'); return; }
+    if (ApiService.currentUserRole != 'cliente') {
+      _snack('Apenas clientes podem criar tarefas');
+      return;
+    }
+
+    setState(() { _isLoading = true; _errorInfo = null; });
+
+    final result = await ApiService.createTask(
+      title: title,
+      description: _descriptionController.text.trim().isEmpty
+          ? null : _descriptionController.text.trim(),
+      applicationId: _selectedApplicationId!,
+      category: _selectedCategory,
     );
+
+    if (!mounted) return;
+
+    if (result['success'] == true) {
+      _titleController.clear();
+      _descriptionController.clear();
+      RefreshService().refreshDashboard();
+      _snack('Tarefa criada com sucesso', success: true);
+    } else {
+      setState(() { _errorInfo = result['error'] ?? 'Erro ao criar tarefa'; });
+      _snack(_errorInfo!);
+    }
+    setState(() => _isLoading = false);
+  }
+
+  void _snack(String msg, {bool success = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Row(children: [
+        Icon(
+          success ? Icons.check_circle_outline : Icons.error_outline,
+          size: 16,
+          color: success ? statusDone : statusCancelled,
+        ),
+        const SizedBox(width: 8),
+        Expanded(child: Text(msg)),
+      ]),
+    ));
   }
 
   @override
@@ -200,197 +106,268 @@ class _CreateTaskScreenState extends State<CreateTaskScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Criar tarefa'),
-        backgroundColor: Colors.deepPurple,
-      ),
-      body: Center(
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final maxWidth = constraints.maxWidth > 500 ? 500.0 : double.infinity;
-
-                return Center(
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(maxWidth: maxWidth),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        const Text(
-                          'Nova tarefa',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 24),
-                        
-                        // Campo Título
-                        TextField(
-                          controller: _titleController,
-                          decoration: const InputDecoration(
-                            labelText: 'Título *',
-                            border: OutlineInputBorder(),
-                            hintText: 'Digite o título da tarefa',
-                          ),
-                          enabled: !_isLoading,
-                        ),
-                        const SizedBox(height: 12),
-                        
-                        // Campo Descrição
-                        TextField(
-                          controller: _descriptionController,
-                          maxLines: 4,
-                          decoration: const InputDecoration(
-                            labelText: 'Descrição (opcional)',
-                            border: OutlineInputBorder(),
-                            hintText: 'Descreva os detalhes da tarefa...',
-                          ),
-                          enabled: !_isLoading,
-                        ),
-                        const SizedBox(height: 12),
-                        
-                        // 🔥 DROPDOWN DE CATEGORIA
-                        DropdownButtonFormField<String>(
-                          value: _selectedCategory,
-                          decoration: const InputDecoration(
-                            labelText: 'Categoria *',
-                            border: OutlineInputBorder(),
-                          ),
-                          items: _categories.map((cat) {
-                            return DropdownMenuItem<String>(
-                              value: cat['value'],
-                              child: Row(
-                                children: [
-                                  Container(
-                                    width: 12,
-                                    height: 12,
-                                    decoration: BoxDecoration(
-                                      color: cat['color'],
-                                      shape: BoxShape.circle,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(cat['label']),
-                                ],
-                              ),
-                            );
-                          }).toList(),
-                          onChanged: !_isLoading
-                              ? (value) {
-                                  setState(() {
-                                    _selectedCategory = value!;
-                                  });
-                                }
-                              : null,
-                        ),
-                        const SizedBox(height: 12),
-                        
-                        // Dropdown de Aplicações
-                        _isLoadingApplications
-                            ? const Center(child: CircularProgressIndicator())
-                            : _applications.isEmpty
-                                ? Container(
-                                    padding: const EdgeInsets.all(16),
-                                    decoration: BoxDecoration(
-                                      color: Colors.orange.shade50,
-                                      border: Border.all(color: Colors.orange.shade200),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Column(
-                                      children: [
-                                        const Text(
-                                          'Você não está vinculado a nenhuma aplicação',
-                                          style: TextStyle(fontWeight: FontWeight.bold),
-                                          textAlign: TextAlign.center,
-                                        ),
-                                        const SizedBox(height: 8),
-                                        const Text(
-                                          'Procure o administrador para vincular você a uma aplicação.',
-                                          textAlign: TextAlign.center,
-                                        ),
-                                        const SizedBox(height: 8),
-                                        ElevatedButton(
-                                          onPressed: _loadApplications,
-                                          child: const Text('Tentar novamente'),
-                                        ),
-                                      ],
-                                    ),
-                                  )
-                                : DropdownButtonFormField<int>(
-                                    value: _selectedApplicationId,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Aplicação *',
-                                      border: OutlineInputBorder(),
-                                    ),
-                                    items: _applications.map((app) {
-                                      return DropdownMenuItem<int>(
-                                        value: app['id'] as int,
-                                        child: Text(app['name'] as String),
-                                      );
-                                    }).toList(),
-                                    onChanged: !_isLoading
-                                        ? (value) {
-                                            setState(() {
-                                              _selectedApplicationId = value;
-                                            });
-                                          }
-                                        : null,
-                                  ),
-                        
-                        // Área de debug
-                        if (_debugInfo != null) ...[
-                          const SizedBox(height: 16),
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.red.shade50,
-                              border: Border.all(color: Colors.red.shade200),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              _debugInfo!,
-                              style: TextStyle(fontSize: 12, color: Colors.red.shade900),
-                            ),
-                          ),
-                        ],
-                        
-                        const SizedBox(height: 24),
-                        
-                        // Botão Criar
-                        SizedBox(
-                          height: 44,
-                          child: ElevatedButton(
-                            onPressed: (_isLoading || _applications.isEmpty) ? null : _handleCreateTask,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.deepPurple,
-                              foregroundColor: Colors.white,
-                            ),
-                            child: _isLoading
-                                ? const SizedBox(
-                                    height: 20,
-                                    width: 20,
-                                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                                  )
-                                : const Text('Criar tarefa'),
-                          ),
-                        ),
-                        
-                        const SizedBox(height: 8),
-                        Text(
-                          'As tarefas aparecem no dashboard agrupadas por status',
-                          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
+      appBar: AppBar(title: const Text('Nova tarefa')),
+      body: _isLoadingApplications
+          ? const Center(child: CircularProgressIndicator(color: primaryColor))
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 560),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // ── Título ──────────────────────────────────────────────
+                    const _SectionLabel('Título *'),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: _titleController,
+                      enabled: !_isLoading,
+                      style: const TextStyle(color: textPrimary, fontSize: 14),
+                      decoration: const InputDecoration(
+                        hintText: 'Ex: Botão de salvar não responde',
+                      ),
                     ),
-                  ),
-                );
-              },
+                    const SizedBox(height: 18),
+
+                    // ── Descrição ───────────────────────────────────────────
+                    const _SectionLabel('Descrição'),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: _descriptionController,
+                      maxLines: 4,
+                      enabled: !_isLoading,
+                      style: const TextStyle(color: textPrimary, fontSize: 13),
+                      decoration: const InputDecoration(
+                        hintText: 'Descreva o contexto, passos para reproduzir, etc.',
+                        alignLabelWithHint: true,
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+
+                    // ── Categoria ───────────────────────────────────────────
+                    const _SectionLabel('Categoria *'),
+                    const SizedBox(height: 8),
+                    ..._categories.map((cat) => _CategoryTile(
+                      option: cat,
+                      selected: _selectedCategory == cat.value,
+                      disabled: _isLoading,
+                      onTap: () => setState(() => _selectedCategory = cat.value),
+                    )),
+                    const SizedBox(height: 18),
+
+                    // ── Aplicação ───────────────────────────────────────────
+                    const _SectionLabel('Aplicação *'),
+                    const SizedBox(height: 6),
+
+                    if (_applications.isEmpty)
+                      _EmptyApps(onRetry: _loadApplications)
+                    else
+                      DropdownButtonFormField<int>(
+                        value: _selectedApplicationId,
+                        dropdownColor: surfaceElevated,
+                        style: const TextStyle(color: textPrimary, fontSize: 13),
+                        decoration: const InputDecoration(),
+                        items: _applications.map((app) => DropdownMenuItem<int>(
+                          value: app['id'] as int,
+                          child: Text(app['name'] as String),
+                        )).toList(),
+                        onChanged: !_isLoading
+                            ? (v) => setState(() => _selectedApplicationId = v)
+                            : null,
+                      ),
+
+                    // ── Bloco de erro ───────────────────────────────────────
+                    if (_errorInfo != null) ...[
+                      const SizedBox(height: 16),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: statusCancelled.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(radiusM),
+                          border: Border.all(color: statusCancelled.withOpacity(0.25)),
+                        ),
+                        child: Row(children: [
+                          const Icon(Icons.error_outline, size: 14, color: statusCancelled),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _errorInfo!,
+                              style: const TextStyle(color: statusCancelled, fontSize: 12),
+                            ),
+                          ),
+                        ]),
+                      ),
+                    ],
+
+                    const SizedBox(height: 28),
+
+                    // ── Submit ──────────────────────────────────────────────
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: (_isLoading || _applications.isEmpty) ? null : _submit,
+                        child: _isLoading
+                            ? const SizedBox(
+                                height: 18, width: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2, color: backgroundColor,
+                                ),
+                              )
+                            : const Text('Criar tarefa'),
+                      ),
+                    ),
+
+                    const SizedBox(height: 12),
+                    const Center(
+                      child: Text(
+                        'A tarefa será enviada para análise da equipe',
+                        style: TextStyle(color: textMuted, fontSize: 11),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
+    );
+  }
+}
+
+// ─── Modelo local ─────────────────────────────────────────────────────────────
+
+class _CategoryOption {
+  final String value;
+  final String label;
+  final Color  color;
+  final String description;
+  const _CategoryOption(this.value, this.label, this.color, this.description);
+}
+
+// ─── Sub-widgets ──────────────────────────────────────────────────────────────
+
+class _SectionLabel extends StatelessWidget {
+  final String text;
+  const _SectionLabel(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      style: const TextStyle(
+        color: textSecondary,
+        fontSize: 12,
+        fontWeight: FontWeight.w500,
+        letterSpacing: 0.3,
+      ),
+    );
+  }
+}
+
+class _CategoryTile extends StatelessWidget {
+  final _CategoryOption option;
+  final bool selected;
+  final bool disabled;
+  final VoidCallback onTap;
+
+  const _CategoryTile({
+    required this.option,
+    required this.selected,
+    required this.disabled,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: disabled ? null : onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 120),
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: selected ? option.color.withOpacity(0.08) : surfaceColor,
+          borderRadius: BorderRadius.circular(radiusM),
+          border: Border.all(
+            color: selected ? option.color.withOpacity(0.5) : borderColor,
+            width: selected ? 1.5 : 1,
           ),
         ),
+        child: Row(children: [
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 120),
+            width: 16, height: 16,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: selected ? option.color : Colors.transparent,
+              border: Border.all(
+                color: selected ? option.color : borderColor,
+                width: 1.5,
+              ),
+            ),
+            child: selected
+                ? const Icon(Icons.check, size: 10, color: backgroundColor)
+                : null,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  option.label,
+                  style: TextStyle(
+                    color: selected ? option.color : textPrimary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Text(
+                  option.description,
+                  style: const TextStyle(color: textMuted, fontSize: 11),
+                ),
+              ],
+            ),
+          ),
+        ]),
+      ),
+    );
+  }
+}
+
+class _EmptyApps extends StatelessWidget {
+  final VoidCallback onRetry;
+  const _EmptyApps({required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: surfaceElevated,
+        borderRadius: BorderRadius.circular(radiusM),
+        border: Border.all(color: borderColor),
+      ),
+      child: Column(
+        children: [
+          const Icon(Icons.inbox_outlined, color: textMuted, size: 28),
+          const SizedBox(height: 8),
+          const Text(
+            'Nenhuma aplicação vinculada',
+            style: TextStyle(
+              color: textSecondary, fontSize: 13, fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Fale com o administrador para vincular sua conta.',
+            style: TextStyle(color: textMuted, fontSize: 12),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 12),
+          TextButton(
+            onPressed: onRetry,
+            child: const Text('Tentar novamente'),
+          ),
+        ],
       ),
     );
   }
